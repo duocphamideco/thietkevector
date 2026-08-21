@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Studio Pro · Bao bì / In ấn</title>
+<style>
+  :root{
+    --bg:#1e1e1e; --panel:#2b2b2b; --panel2:#252525; --border:#3a3a3a;
+    --ink:#e8e8e8; --muted:#8a8a8a; --accent:#2f8fff; --accent2:#0e6bd6;
+    --hi:#3a3a3a; --canvas:#4a4a4a; --paper:#ffffff;
+    --bleed:#e0533d; --margin:#2fb0ff; --die:#e84fd0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{font:12px/1.4 -apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);
+    color:var(--ink); overflow:hidden; user-select:none; -webkit-user-select:none;}
+  .app{display:grid; grid-template-columns:52px 1fr 266px; grid-template-rows:38px 1fr 26px; height:100vh}
+
+  .topbar{grid-column:1/4; background:var(--panel); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:12px; padding:0 12px; overflow-x:auto}
+  .topbar .logo{font-weight:700; letter-spacing:.5px; color:#fff; font-size:13px; white-space:nowrap}
+  .topbar .logo span{color:var(--accent)}
+  .group{display:flex; gap:2px; align-items:center}
+  .tbtn{background:var(--panel2); border:1px solid var(--border); color:var(--ink); height:24px;
+    padding:0 9px; border-radius:4px; cursor:pointer; font-size:11px; white-space:nowrap}
+  .tbtn:hover{background:var(--hi)} .tbtn:active{background:var(--accent)}
+  .tbtn.on{background:var(--accent); border-color:var(--accent2); color:#fff}
+  .sep{width:1px; height:20px; background:var(--border); flex-shrink:0}
+  .zoomlbl{color:var(--muted); min-width:44px; text-align:center}
+
+  .toolbar{grid-row:2/4; background:var(--panel); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; padding-top:6px; gap:3px}
+  .tool{width:38px; height:38px; border-radius:6px; border:1px solid transparent; background:transparent;
+    color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; position:relative}
+  .tool svg{width:20px; height:20px}
+  .tool:hover{background:var(--hi)}
+  .tool.active{background:var(--accent); border-color:var(--accent2); color:#fff}
+  .tool .tip{position:absolute; left:44px; top:50%; transform:translateY(-50%); background:#000; color:#fff;
+    padding:3px 8px; border-radius:4px; white-space:nowrap; opacity:0; pointer-events:none; transition:.12s; z-index:50}
+  .tool:hover .tip{opacity:1}
+  .toolsep{width:26px; height:1px; background:var(--border); margin:4px 0}
+  .swatches{margin-top:auto; margin-bottom:8px; position:relative; width:40px; height:40px}
+  .swatch{position:absolute; width:24px; height:24px; border-radius:4px; border:2px solid #777; cursor:pointer}
+  .sw-fill{top:0; left:0; z-index:2}
+  .sw-stroke{bottom:0; right:0; z-index:1}
+  .sw-stroke::after{content:''; position:absolute; inset:4px; border:2px solid #222; border-radius:1px}
+
+  .stage{grid-row:2/3; grid-column:2/3; background:var(--canvas); overflow:hidden; position:relative}
+  #svg{width:100%; height:100%; display:block; cursor:crosshair}
+  .stage.pan #svg{cursor:grab} .stage.pan.grabbing #svg{cursor:grabbing}
+  .art-bg{fill:var(--paper); filter:drop-shadow(0 4px 18px rgba(0,0,0,.45))}
+  .bleed-line{fill:none; stroke:var(--bleed); stroke-dasharray:6 4; pointer-events:none}
+  .margin-line{fill:none; stroke:var(--margin); stroke-dasharray:4 4; pointer-events:none}
+  .die-line{fill:none; stroke:var(--die); pointer-events:none}
+  .die-fold{fill:none; stroke:var(--die); stroke-dasharray:5 3; pointer-events:none; opacity:.7}
+  .guide-lbl{fill:var(--muted); pointer-events:none}
+  .handle{fill:#fff; stroke:var(--accent); cursor:pointer}
+  .ctrl-line{stroke:var(--accent)}
+  .ctrl-pt{fill:var(--accent); stroke:#fff; cursor:pointer}
+  .selbox{fill:none; stroke:var(--accent); stroke-dasharray:4 3; pointer-events:none}
+  .marquee{fill:rgba(47,143,255,.12); stroke:var(--accent); stroke-dasharray:3 2}
+  .rot-handle{fill:#fff; stroke:var(--accent); cursor:grab}
+  .grad-gizmo-line{stroke:#fff; stroke-dasharray:3 2}
+  .grad-stop{stroke:#fff; cursor:pointer}
+  .grad-mid{fill:#111; stroke:#fff; cursor:pointer}
+
+  .side{grid-row:2/4; grid-column:3/4; background:var(--panel); border-left:1px solid var(--border);
+    display:flex; flex-direction:column; overflow-y:auto}
+  .panel{border-bottom:1px solid var(--border)}
+  .panel-h{padding:7px 10px; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px;
+    color:var(--muted); background:var(--panel2); display:flex; justify-content:space-between; align-items:center}
+  .panel-b{padding:10px}
+  .row{display:flex; align-items:center; gap:6px; margin-bottom:8px}
+  .row:last-child{margin-bottom:0}
+  .row label{width:52px; color:var(--muted); flex-shrink:0}
+  .row label.sm{width:auto}
+  .inp{background:var(--panel2); border:1px solid var(--border); color:var(--ink); height:24px;
+    border-radius:4px; padding:0 6px; width:100%; font-size:11px}
+  .inp:focus{outline:none; border-color:var(--accent)}
+  select.inp{padding:0 4px}
+  input[type=color]{padding:1px; height:24px; width:34px; cursor:pointer; background:var(--panel2);
+    border:1px solid var(--border); border-radius:4px}
+  input[type=range]{width:100%; accent-color:var(--accent)}
+  .mini{width:50px !important}
+  .cmyk-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+  .cmyk-grid .cell{display:flex; align-items:center; gap:4px}
+  .cmyk-grid .cell b{width:14px; color:var(--muted); text-align:center}
+
+  /* ---- Color picker ---- */
+  .sv-box{position:relative; width:100%; height:120px; border-radius:5px; overflow:hidden;
+    cursor:crosshair; margin-bottom:8px; border:1px solid var(--border)}
+  .sv-white{position:absolute; inset:0; background:linear-gradient(to right,#fff,rgba(255,255,255,0))}
+  .sv-black{position:absolute; inset:0; background:linear-gradient(to top,#000,rgba(0,0,0,0))}
+  .sv-cursor{position:absolute; width:12px; height:12px; border:2px solid #fff; border-radius:50%;
+    transform:translate(-50%,-50%); box-shadow:0 0 0 1px #000; pointer-events:none}
+  .hue-bar{position:relative; width:100%; height:14px; border-radius:4px; cursor:pointer; margin-bottom:8px;
+    background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+  .hue-cursor{position:absolute; top:-2px; width:6px; height:18px; border:2px solid #fff; border-radius:3px;
+    transform:translateX(-50%); box-shadow:0 0 0 1px #000; pointer-events:none}
+  .colorprev{width:100%; height:22px; border-radius:4px; border:1px solid var(--border); margin-bottom:8px}
+
+  /* ---- Gradient editor ---- */
+  .grad-strip{position:relative; width:100%; height:22px; border-radius:4px; margin-bottom:6px;
+    border:1px solid var(--border); cursor:copy; background-image:
+      linear-gradient(45deg,#666 25%,transparent 25%),linear-gradient(-45deg,#666 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#666 75%),linear-gradient(-45deg,transparent 75%,#666 75%);
+    background-size:10px 10px; background-position:0 0,0 5px,5px -5px,-5px 0}
+  .grad-fill{position:absolute; inset:0; border-radius:3px}
+  .gstop{position:absolute; top:-4px; width:12px; height:30px; transform:translateX(-50%); cursor:grab}
+  .gstop .knob{position:absolute; bottom:0; left:0; width:12px; height:12px; border-radius:50%;
+    border:2px solid #fff; box-shadow:0 0 0 1px #000}
+  .gstop .stem{position:absolute; top:0; left:5px; width:2px; height:18px; background:#fff}
+  .gstop.sel .knob{border-color:var(--accent); box-shadow:0 0 0 2px var(--accent)}
+
+  .layers{max-height:180px; overflow-y:auto}
+  .layer{display:flex; align-items:center; gap:6px; padding:5px 10px; cursor:pointer; border-bottom:1px solid #2f2f2f}
+  .layer:hover{background:var(--panel2)} .layer.sel{background:var(--accent2)}
+  .layer .eye{width:14px; opacity:.8; cursor:pointer; flex-shrink:0}
+  .layer .thumb{width:20px; height:20px; border-radius:3px; background:#111; display:flex;
+    align-items:center; justify-content:center; flex-shrink:0}
+  .layer .thumb svg{width:16px; height:16px}
+  .layer .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .layer.hidden .nm{opacity:.4}
+  .empty{padding:14px 10px; color:var(--muted); text-align:center; font-style:italic}
+
+  ::-webkit-scrollbar{width:9px; height:9px}
+  ::-webkit-scrollbar-thumb{background:#4a4a4a; border-radius:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  .status{grid-column:1/4; grid-row:3/4; background:var(--panel); border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:16px; padding:0 12px; color:var(--muted); font-size:11px; overflow-x:auto}
+  .status b{color:var(--ink); font-weight:500}
+  .hint{color:var(--muted); font-size:10.5px; line-height:1.5}
+  .tag{display:inline-block; padding:1px 5px; border-radius:3px; font-size:10px; margin-left:4px}
+  .tag.cmyk{background:#264; color:#9f9} .tag.rgb{background:#246; color:#9cf}
+  .legend{display:flex; gap:10px; font-size:10.5px; color:var(--muted); flex-wrap:wrap}
+  .legend i{display:inline-block; width:14px; height:0; border-top:2px dashed; margin-right:3px; vertical-align:middle}
+  .note{background:#3a2f1a; border:1px solid #6b5320; color:#e8c778; padding:6px 8px; border-radius:4px;
+    font-size:10.5px; line-height:1.5; margin-top:8px}
+  .seg{display:flex; gap:0; border:1px solid var(--border); border-radius:4px; overflow:hidden}
+  .seg button{flex:1; background:var(--panel2); border:none; color:var(--ink); height:24px; cursor:pointer; font-size:11px}
+  .seg button.on{background:var(--accent); color:#fff}
+  .seg button+button{border-left:1px solid var(--border)}
+  .bg-img{opacity:.6; pointer-events:none}
+  .tpl-card{background:var(--panel2); border:1px solid var(--border); border-radius:6px; padding:8px;
+    margin-bottom:8px; cursor:pointer; display:flex; gap:8px; align-items:center}
+  .tpl-card:hover{border-color:var(--accent)}
+  .tpl-card .tp-thumb{width:44px; height:44px; border-radius:4px; background:#111; flex-shrink:0;
+    background-size:cover; background-position:center; border:1px solid var(--border)}
+  .tpl-card .tp-info{flex:1; overflow:hidden}
+  .tpl-card .tp-name{font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .tpl-card .tp-meta{color:var(--muted); font-size:10px}
+  .tpl-card .tp-del{color:var(--muted); cursor:pointer; padding:2px 5px; border-radius:3px}
+  .tpl-card .tp-del:hover{background:#5a2020; color:#fff}
+  .field-item{background:var(--panel2); border:1px solid var(--border); border-radius:5px; padding:7px;
+    margin-bottom:7px}
+  .field-item .fh{display:flex; justify-content:space-between; align-items:center; margin-bottom:5px}
+  .field-item .fh .fk{color:var(--accent); font-weight:600; font-size:10.5px}
+  .field-item .fh .fx{color:var(--muted); cursor:pointer; padding:0 4px}
+  .field-item .fh .fx:hover{color:#f88}
+  .drop{border:1.5px dashed var(--border); border-radius:6px; padding:14px 8px; text-align:center;
+    color:var(--muted); cursor:pointer; font-size:11px}
+  .drop:hover{border-color:var(--accent); color:var(--ink)}
+  .drop.hot{border-color:var(--accent); background:rgba(47,143,255,.08)}
+  .tab-bar{display:flex; border-bottom:1px solid var(--border); background:var(--panel2)}
+  .tab-bar button{flex:1; background:transparent; border:none; color:var(--muted); height:30px;
+    cursor:pointer; font-size:11px; font-weight:600; border-bottom:2px solid transparent}
+  .tab-bar button.on{color:#fff; border-bottom-color:var(--accent)}
+  .tabview{display:none} .tabview.on{display:block}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="logo">Vector<span>Studio</span> Pro</div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="tbtn" id="newDoc">Mới</button>
+      <button class="tbtn" id="exportSvg">SVG</button>
+      <button class="tbtn" id="exportPdf">PDF in</button>
+      <button class="tbtn" id="exportAi">File .ai</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="tbtn" id="undoBtn">↶</button>
+      <button class="tbtn" id="redoBtn">↷</button>
+      <button class="tbtn" id="dupBtn">Nhân bản</button>
+      <button class="tbtn" id="delBtn">Xóa</button>
+      <button class="tbtn" id="frontBtn">↑</button>
+      <button class="tbtn" id="backBtn">↓</button>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="tbtn" id="tglBleed">Bleed</button>
+      <button class="tbtn" id="tglMargin">Lề</button>
+      <button class="tbtn" id="tglDie">Dieline</button>
+      <button class="tbtn" id="tglBg">Ảnh nền</button>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:6px; align-items:center">
+      <button class="tbtn" id="zoomOut">−</button>
+      <span class="zoomlbl" id="zoomLbl">100%</span>
+      <button class="tbtn" id="zoomIn">+</button>
+      <button class="tbtn" id="zoomFit">Vừa khung</button>
+    </div>
+  </div>
+
+  <div class="toolbar" id="toolbar">
+    <button class="tool active" data-tool="select"><span class="tip">Chọn (V)</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3l14 8-6 1.5L11 20 6 3z"/></svg></button>
+    <button class="tool" data-tool="direct"><span class="tip">Chỉnh điểm neo (A)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3l14 8-6 1.5L11 20 6 3z" fill="currentColor" opacity=".25"/><circle cx="6" cy="3" r="2.4" fill="var(--panel)"/></svg></button>
+    <button class="tool" data-tool="curve"><span class="tip">Uốn cong (U)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17c5 0 5-10 10-10s5 8 8 8"/><circle cx="3" cy="17" r="1.6" fill="currentColor"/><circle cx="21" cy="15" r="1.6" fill="currentColor"/></svg></button>
+    <div class="toolsep"></div>
+    <button class="tool" data-tool="pen"><span class="tip">Bút Bezier (P)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20l3-1 10-10-2-2L5 17l-1 3z"/><path d="M14 6l2 2"/><circle cx="19" cy="5" r="1.6" fill="currentColor"/></svg></button>
+    <button class="tool" data-tool="rect"><span class="tip">Chữ nhật (M)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+    <button class="tool" data-tool="ellipse"><span class="tip">Elip (L)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg></button>
+    <button class="tool" data-tool="poly"><span class="tip">Đa giác</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 6-3 10H7L4 9z"/></svg></button>
+    <button class="tool" data-tool="star"><span class="tip">Ngôi sao</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.5 6H21l-5 4 2 7-6-4-6 4 2-7-5-4h6.5z"/></svg></button>
+    <button class="tool" data-tool="line"><span class="tip">Đường thẳng (\\)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/></svg></button>
+    <button class="tool" data-tool="text"><span class="tip">Chữ (T)</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4h14v3h-1.5V5.5h-4.75V19H14v1.5h-4V19h1.25V5.5H6.5V7H5z"/></svg></button>
+    <button class="tool" data-tool="image"><span class="tip">Vùng ảnh/logo (I)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor" stroke="none"/><path d="M4 17l5-5 4 4 3-3 4 4"/></svg></button>
+    <div class="toolsep"></div>
+    <button class="tool" data-tool="hand"><span class="tip">Kéo canvas (Space)</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 11V5.5a1.5 1.5 0 013 0V11m0-1V4.5a1.5 1.5 0 013 0V11m0-.5V6a1.5 1.5 0 013 0v7c0 3.5-2.5 7-6.5 7S8 17 8 15l-2-3.5a1.5 1.5 0 012.6-1.5L10 12"/></svg></button>
+
+    <div class="swatches">
+      <div class="swatch sw-fill" id="swFill"></div>
+      <div class="swatch sw-stroke" id="swStroke"></div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+  <div class="side">
+    <div class="tab-bar">
+      <button class="on" id="tabDesign">Thiết kế</button>
+      <button id="tabTemplate">Template</button>
+    </div>
+
+    <div class="tabview on" id="viewDesign">
+    <!-- KHUNG -->
+    <div class="panel">
+      <div class="panel-h">Khung bao bì</div>
+      <div class="panel-b">
+        <div class="row"><label>Mẫu</label>
+          <select class="inp" id="preset">
+            <optgroup label="Phẳng (mm)">
+              <option value="90,54">Card 90×54</option>
+              <option value="210,297">A4 210×297</option>
+              <option value="297,420">A3 297×420</option>
+              <option value="148,210">A5 148×210</option>
+              <option value="200,200">Nhãn vuông 200</option>
+              <option value="100,150">Nhãn 100×150</option>
+            </optgroup>
+            <optgroup label="Hộp dieline (mm)">
+              <option value="die-tuck">Hộp nắp gài (Tuck-end)</option>
+              <option value="die-pillow">Hộp gối (Pillow)</option>
+            </optgroup>
+            <option value="custom">Tùy chỉnh…</option>
+          </select>
+        </div>
+        <div class="row"><label>Rộng</label>
+          <input type="number" class="inp" id="docW" min="10" step="1" value="90">
+          <label class="sm">Cao</label>
+          <input type="number" class="inp" id="docH" min="10" step="1" value="54">
+          <span style="color:var(--muted)">mm</span>
+        </div>
+        <div class="row" id="dieRow" style="display:none"><label>Sâu hộp</label>
+          <input type="number" class="inp" id="dieDepth" min="5" step="1" value="30">
+          <span style="color:var(--muted)">mm</span>
+        </div>
+        <div class="row"><label>Bleed</label>
+          <input type="number" class="inp" id="bleed" min="0" step="0.5" value="3">
+          <label class="sm">Lề</label>
+          <input type="number" class="inp" id="margin" min="0" step="0.5" value="4">
+          <span style="color:var(--muted)">mm</span>
+        </div>
+        <button class="tbtn" id="applyDoc" style="width:100%; height:26px">Áp dụng khung</button>
+        <div class="legend" style="margin-top:8px">
+          <span><i style="border-color:var(--bleed)"></i>Bleed</span>
+          <span><i style="border-color:var(--margin)"></i>Lề</span>
+          <span><i style="border-color:var(--die)"></i>Dieline</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÀU -->
+    <div class="panel">
+      <div class="panel-h">Màu &amp; Gradient <span id="modeTag" class="tag cmyk">CMYK</span></div>
+      <div class="panel-b">
+        <div class="row"><label>Áp cho</label>
+          <div class="seg" style="flex:1">
+            <button class="on" id="targetFill">Tô</button>
+            <button id="targetStroke">Nét</button>
+          </div>
+        </div>
+        <div class="row"><label>Kiểu</label>
+          <div class="seg" style="flex:1">
+            <button class="on" id="ptSolid">Đơn sắc</button>
+            <button id="ptLinear">Linear</button>
+            <button id="ptRadial">Radial</button>
+          </div>
+        </div>
+
+        <!-- Gradient strip (hiện khi gradient) -->
+        <div id="gradEditor" style="display:none">
+          <div class="grad-strip" id="gradStrip"><div class="grad-fill" id="gradFill"></div></div>
+          <div class="row" style="justify-content:space-between; margin-bottom:6px">
+            <span class="hint">Click thanh để thêm điểm màu · kéo để di chuyển · double-click để xóa</span>
+          </div>
+          <div class="row"><label>Góc</label>
+            <input type="range" id="gradAngle" min="0" max="360" value="0">
+            <span id="gradAngleVal" style="color:var(--muted); width:34px">0°</span>
+          </div>
+        </div>
+
+        <!-- Color picker -->
+        <div class="sv-box" id="svBox">
+          <div class="sv-white"></div><div class="sv-black"></div>
+          <div class="sv-cursor" id="svCursor"></div>
+        </div>
+        <div class="hue-bar" id="hueBar"><div class="hue-cursor" id="hueCursor"></div></div>
+        <div class="colorprev" id="colorPrev"></div>
+
+        <div class="row"><label>Hệ màu</label>
+          <div class="seg" style="flex:1">
+            <button class="on" id="modeCmyk">CMYK</button>
+            <button id="modeRgb">RGB</button>
+          </div>
+        </div>
+        <div id="cmykBox" class="cmyk-grid">
+          <div class="cell"><b>C</b><input type="number" class="inp" id="cC" min="0" max="100" value="70"></div>
+          <div class="cell"><b>M</b><input type="number" class="inp" id="cM" min="0" max="100" value="44"></div>
+          <div class="cell"><b>Y</b><input type="number" class="inp" id="cY" min="0" max="100" value="0"></div>
+          <div class="cell"><b>K</b><input type="number" class="inp" id="cK" min="0" max="100" value="0"></div>
+        </div>
+        <div id="rgbBox" style="display:none">
+          <div class="row"><label>HEX</label>
+            <input type="color" id="rgbPick" value="#2f8fff">
+            <input type="text" class="inp mini" id="rgbHex" value="#2f8fff">
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <button class="tbtn on" id="applyColor" style="flex:1; height:26px">Áp vào đối tượng</button>
+          <button class="tbtn" id="noFill" title="Không tô/nét">∅</button>
+        </div>
+        <div class="row">
+          <button class="tbtn on" id="tgFill" style="flex:1; height:26px">● Nền: Bật</button>
+          <button class="tbtn on" id="tgStroke" style="flex:1; height:26px">○ Viền: Bật</button>
+        </div>
+        <div class="row"><label>Dày nét</label>
+          <input type="number" class="inp" id="strokeWidth" min="0" step="0.25" value="0.5">
+          <span style="color:var(--muted)">mm</span>
+        </div>
+        <div class="row"><label>Độ mờ</label>
+          <input type="range" id="fillOpacity" min="0" max="100" value="100">
+        </div>
+      </div>
+    </div>
+
+    <!-- BIẾN ĐỔI -->
+    <div class="panel">
+      <div class="panel-h">Biến đổi (mm)</div>
+      <div class="panel-b">
+        <div class="row"><label>X</label><input type="number" class="inp" id="posX" step="1">
+          <label class="sm">Y</label><input type="number" class="inp" id="posY" step="1"></div>
+        <div class="row"><label>Rộng</label><input type="number" class="inp" id="dimW" step="1">
+          <label class="sm">Cao</label><input type="number" class="inp" id="dimH" step="1"></div>
+        <div class="row"><label>Xoay</label><input type="number" class="inp" id="rot" step="1" value="0">
+          <span style="color:var(--muted)">°</span></div>
+      </div>
+    </div>
+
+    <!-- LAYERS -->
+    <div class="panel">
+      <div class="panel-h">Lớp <button class="tbtn" id="clearAll" style="height:20px; padding:0 6px">Xóa hết</button></div>
+      <div class="layers" id="layers"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h">Mẹo</div>
+      <div class="panel-b">
+        <div class="hint">• <b>U</b> uốn cong: kéo <b>giữa đoạn</b> để bẻ cong, kéo <b>điểm neo</b> để di chuyển.<br>
+          • <b>A</b> chỉnh tay cầm bezier từng điểm.<br>
+          • Gradient: chọn Linear/Radial rồi chỉnh điểm màu trên thanh, kéo gizmo trên canvas để đặt hướng.</div>
+        <div class="note">File .ai = PDF tương thích Illustrator (vector, CMYK, gradient giữ nguyên). Màn hình hiển thị RGB xấp xỉ.</div>
+      </div>
+    </div>
+    </div><!-- /viewDesign -->
+
+    <!-- ============ TAB TEMPLATE ============ -->
+    <div class="tabview" id="viewTemplate">
+      <div class="panel">
+        <div class="panel-h">Ảnh nền layout</div>
+        <div class="panel-b">
+          <div class="drop" id="bgDrop">Kéo thả ảnh layout hộp vào đây<br>hoặc bấm để chọn ảnh</div>
+          <input type="file" id="bgFile" accept="image/*" hidden>
+          <div id="bgControls" style="display:none; margin-top:10px">
+            <div class="row"><label>Hiện</label>
+              <button class="tbtn on" id="bgShow" style="flex:1">Bật/tắt</button>
+              <button class="tbtn on" id="bgLock" style="flex:1">Khóa</button>
+            </div>
+            <div class="row"><label>Độ mờ</label>
+              <input type="range" id="bgOpacity" min="10" max="100" value="60">
+            </div>
+            <div class="row"><label>Vừa khung</label>
+              <button class="tbtn" id="bgFit" style="flex:1">Căn khớp khổ</button>
+              <button class="tbtn" id="bgRemove" style="flex:1">Gỡ ảnh</button>
+            </div>
+            <div class="hint">Ảnh nền chỉ để trô/căn vector — không xuất ra file in.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">Trường điền sẵn
+          <button class="tbtn" id="addField" style="height:20px; padding:0 6px">+ Thêm</button></div>
+        <div class="panel-b">
+          <div id="fieldList"></div>
+          <div class="hint" id="fieldEmpty">Chưa có trường. Bấm "+ Thêm" để tạo ô như Tên SP, Khối lượng, Mã vạch… rồi đặt lên canvas. Đổi giá trị ở đây, chữ trên bản vẽ đổi theo.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">Vùng ảnh / logo</div>
+        <div class="panel-b">
+          <div class="hint">Dùng công cụ <b>Vùng ảnh (I)</b> vẽ một khung trên canvas, rồi bấm nút dưới để nạp ảnh/logo. Thay ảnh khác bất cứ lúc nào.</div>
+          <button class="tbtn" id="fillImage" style="width:100%; height:26px; margin-top:8px">Nạp ảnh vào khung đang chọn</button>
+          <input type="file" id="imgFile" accept="image/*" hidden>
+          <div style="height:1px;background:var(--border);margin:12px 0"></div>
+          <div class="panel-h" style="padding:0 0 6px;background:none">Tách nền (remove.bg)</div>
+          <div class="row"><label>API key</label>
+            <input type="password" class="inp" id="rbgKey" placeholder="Dán API key remove.bg">
+          </div>
+          <div class="row">
+            <button class="tbtn" id="saveKey" style="flex:1">Lưu key</button>
+            <span id="keyState" style="color:var(--muted);font-size:10.5px;flex:1"></span>
+          </div>
+          <button class="tbtn on" id="removeBg" style="width:100%; height:28px; margin-top:6px">✂️ Tách nền ảnh đang chọn</button>
+          <div id="rbgStatus" class="hint" style="margin-top:6px"></div>
+          <div class="note" style="margin-top:8px">Key lưu tại máy bạn (IndexedDB), không nhúng trong file. Mỗi lần tách nền tiêu 1 credit remove.bg. Nếu bị lỗi CORS, cần chạy qua máy chủ trung gian.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">Template đã lưu</div>
+        <div class="panel-b">
+          <div class="row">
+            <input type="text" class="inp" id="tplName" placeholder="Tên template (VD: Hộp Vitamin C)">
+          </div>
+          <button class="tbtn on" id="saveTpl" style="width:100%; height:28px; margin-bottom:10px">💾 Lưu template hiện tại</button>
+          <div id="tplList"></div>
+          <div class="hint" id="tplEmpty">Chưa có template nào. Thiết kế xong rồi lưu để tái sử dụng — mở lại trang vẫn còn.</div>
+        </div>
+      </div>
+    </div><!-- /viewTemplate -->
+  </div>
+
+  <div class="status">
+    <span>Công cụ: <b id="stTool">Chọn</b></span>
+    <span>Chuột: <b id="stXY">0, 0</b> mm</span>
+    <span>Khung: <b id="stDoc">90 × 54 mm</b></span>
+    <span>Đối tượng: <b id="stCount">0</b></span>
+    <span id="stSel"></span>
+  </div>
+</div>
+
+<script>
+const SVGNS="http://www.w3.org/2000/svg";
+const $=s=>document.querySelector(s);
+const svg=$("#svg"), stage=$("#stage");
+
+// ---------- Document ----------
+const DOC={w:90,h:54,bleed:3,margin:4,die:null};
+let view={x:0,y:0,zoom:1};
+let objects=[], selection=[], idSeq=1, gradSeq=1;
+let tool="select";
+let colorMode="cmyk", colorTarget="fill", paintType="solid"; // solid|linear|radial
+// color = {mode,cmyk:[..],hex} ; gradient = {type,angle,stops:[{off,color}]}
+let style={
+  fill:{mode:"cmyk",cmyk:[70,44,0,0],hex:cmykToHex(70,44,0,0)},
+  stroke:{mode:"cmyk",cmyk:[0,0,0,100],hex:"#000000"},
+  strokeWidth:0.5, fillOpacity:1
+};
+let hsv={h:210,s:.82,v:1}; // picker state
+let gradStops=[{off:0,color:mkCol(70,44,0,0)},{off:1,color:mkCol(0,0,0,0)}];
+let gradAngle=0, selStop=0;
+let show={bleed:false,margin:false,die:false};
+let bg={href:null,x:0,y:0,w:0,h:0,opacity:.6,visible:true,locked:true};
+let fields=[]; // {key, value}
+let removebgKey=""; // remove.bg API key (lưu tại máy)
+
+const gWorld=el("g",{id:"world"}), gDefs=el("defs"), gArt=el("g",{id:"art"}),
+  gShapes=el("g",{id:"shapes"}), gGuides=el("g",{id:"guides"}), gOverlay=el("g",{id:"overlay"});
+const artBg=el("rect",{class:"art-bg",x:0,y:0,width:DOC.w,height:DOC.h});
+const gBg=el("g",{id:"bglayer"});
+svg.append(gDefs); svg.append(gWorld); gWorld.append(gArt); gArt.append(artBg,gBg,gShapes); gWorld.append(gGuides,gOverlay);
+function fieldValue(key){const f=fields.find(f=>f.key===key);return f?f.value:null;}
+
+function el(tag,attrs={}){const e=document.createElementNS(SVGNS,tag);
+  for(const k in attrs)e.setAttribute(k,attrs[k]); return e;}
+function mkCol(c,m,y,k){return{mode:"cmyk",cmyk:[c,m,y,k],hex:cmykToHex(c,m,y,k)};}
+
+// ---------- Color conversions ----------
+function cmykToRgb(c,m,y,k){c/=100;m/=100;y/=100;k/=100;
+  return[Math.round(255*(1-c)*(1-k)),Math.round(255*(1-m)*(1-k)),Math.round(255*(1-y)*(1-k))];}
+function cmykToHex(c,m,y,k){return rgbToHex(...cmykToRgb(c,m,y,k));}
+function rgbToHex(r,g,b){return"#"+[r,g,b].map(x=>Math.max(0,Math.min(255,x)).toString(16).padStart(2,"0")).join("");}
+function hexToRgb(h){h=h.replace("#","");if(h.length===3)h=[...h].map(x=>x+x).join("");
+  return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function rgbToCmyk(r,g,b){r/=255;g/=255;b/=255;const k=1-Math.max(r,g,b);
+  if(k>=1)return[0,0,0,100];
+  return[Math.round((1-r-k)/(1-k)*100),Math.round((1-g-k)/(1-k)*100),Math.round((1-b-k)/(1-k)*100),Math.round(k*100)];}
+function rgbToHsv(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;if(d){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360;}
+  return{h,s:mx?d/mx:0,v:mx};}
+function hsvToRgb(h,s,v){const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let r,g,b;
+  if(h<60)[r,g,b]=[c,x,0];else if(h<120)[r,g,b]=[x,c,0];else if(h<180)[r,g,b]=[0,c,x];
+  else if(h<240)[r,g,b]=[0,x,c];else if(h<300)[r,g,b]=[x,0,c];else[r,g,b]=[c,0,x];
+  return[Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];}
+function colToCss(c){if(c==="none"||!c)return"none";if(c.grad)return`url(#${c.grad.id})`;return c.hex;}
+
+// ---------- History ----------
+let history=[],hpos=-1;
+function snapshot(){history=history.slice(0,hpos+1);
+  history.push(JSON.stringify({objects,idSeq,gradSeq,DOC}));
+  if(history.length>50)history.shift(); hpos=history.length-1;}
+function restore(s){const d=JSON.parse(s);objects=d.objects;idSeq=d.idSeq;gradSeq=d.gradSeq;Object.assign(DOC,d.DOC);
+  selection=selection.filter(id=>objects.some(o=>o.id===id));syncDocInputs();render();}
+function undo(){if(hpos>0){hpos--;restore(history[hpos]);}}
+function redo(){if(hpos<history.length-1){hpos++;restore(history[hpos]);}}
+
+// ---------- Transforms ----------
+function screenToWorld(sx,sy){const r=svg.getBoundingClientRect();
+  return{x:(sx-r.left-view.x)/view.zoom,y:(sy-r.top-view.y)/view.zoom};}
+function applyView(){gWorld.setAttribute("transform",`translate(${view.x},${view.y}) scale(${view.zoom})`);
+  $("#zoomLbl").textContent=Math.round(view.zoom*100)+"%";}
+
+// ---------- Gradient defs ----------
+function ensureGradDefs(){
+  gDefs.textContent="";
+  objects.forEach(o=>{ ["fill","stroke"].forEach(k=>{
+    const c=o[k]; if(c&&c!=="none"&&c.grad) buildGradDef(c.grad,o);
+  });});
+}
+function buildGradDef(g,o){
+  const b=bboxRaw(o);
+  let gr;
+  if(g.type==="linear"){
+    const a=(g.angle||0)*Math.PI/180;
+    const cx=b.x+b.w/2, cy=b.y+b.h/2, r=Math.max(b.w,b.h)/2;
+    const x1=cx-Math.cos(a)*r, y1=cy-Math.sin(a)*r, x2=cx+Math.cos(a)*r, y2=cy+Math.sin(a)*r;
+    gr=el("linearGradient",{id:g.id,gradientUnits:"userSpaceOnUse",x1,y1,x2,y2});
+  } else {
+    gr=el("radialGradient",{id:g.id,gradientUnits:"userSpaceOnUse",
+      cx:b.x+b.w/2,cy:b.y+b.h/2,r:Math.max(b.w,b.h)/2,fx:b.x+b.w/2,fy:b.y+b.h/2});
+  }
+  g.stops.forEach(s=>gr.append(el("stop",{offset:s.off,"stop-color":s.color.hex})));
+  gDefs.append(gr);
+}
+
+// ---------- Build element ----------
+function buildEl(o){
+  let e;
+  if(o.type==="rect")e=el("rect",o.attrs);
+  else if(o.type==="ellipse")e=el("ellipse",o.attrs);
+  else if(o.type==="line")e=el("line",o.attrs);
+  else if(o.type==="text"){e=el("text",{x:o.attrs.x,y:o.attrs.y,"font-size":o.attrs.size,
+    "font-family":o.attrs.font||"Arial","font-weight":o.attrs.weight||"normal"});
+    e.textContent=o.field?(fieldValue(o.field)||o.attrs.text):o.attrs.text;}
+  else if(o.type==="image"){
+    if(o.attrs.href){e=el("image",{x:o.attrs.x,y:o.attrs.y,width:o.attrs.width,height:o.attrs.height,
+      preserveAspectRatio:"xMidYMid slice"});e.setAttributeNS("http://www.w3.org/1999/xlink","href",o.attrs.href);
+      e.setAttribute("href",o.attrs.href);}
+    else{ // empty placeholder frame
+      e=el("g");const r=el("rect",{x:o.attrs.x,y:o.attrs.y,width:o.attrs.width,height:o.attrs.height,
+        fill:"#e8edf2",stroke:"#9bb0c4","stroke-width":.3,"stroke-dasharray":"2 1.5"});
+      const cx=+o.attrs.x+ +o.attrs.width/2,cy=+o.attrs.y+ +o.attrs.height/2;
+      const t=el("text",{x:cx,y:cy,"font-size":Math.min(4,o.attrs.width/8),fill:"#7a8da0","text-anchor":"middle","dominant-baseline":"middle"});
+      t.textContent="ẢNH / LOGO";e.append(r,t);
+      e.dataset.id=o.id;e.dataset.imgframe="1";return e;}
+  }
+  else e=el("path",o.attrs);
+  if(o.type==="image"){e.dataset.id=o.id;return e;}
+  e.setAttribute("fill",colToCss(o.fill));
+  e.setAttribute("fill-opacity",o.fillOpacity??1);
+  e.setAttribute("stroke",colToCss(o.stroke));
+  e.setAttribute("stroke-width",o.strokeWidth||0);
+  e.setAttribute("stroke-linejoin","round");e.setAttribute("stroke-linecap","round");
+  if(o.rotate){const c=centerOf(o);e.setAttribute("transform",`rotate(${o.rotate} ${c.x} ${c.y})`);}
+  e.dataset.id=o.id;return e;
+}
+function bboxRaw(o){const a=o.attrs;
+  if(o.type==="rect"||o.type==="image")return{x:+a.x,y:+a.y,w:+a.width,h:+a.height};
+  if(o.type==="ellipse")return{x:a.cx-a.rx,y:a.cy-a.ry,w:a.rx*2,h:a.ry*2};
+  if(o.type==="line")return{x:Math.min(a.x1,a.x2),y:Math.min(a.y1,a.y2),w:Math.abs(a.x2-a.x1),h:Math.abs(a.y2-a.y1)};
+  const t=el(o.type==="text"?"text":"path",{});
+  if(o.type==="text"){t.setAttribute("x",a.x);t.setAttribute("y",a.y);t.setAttribute("font-size",a.size);t.textContent=a.text;}
+  else t.setAttribute("d",a.d);
+  gShapes.append(t);const b=t.getBBox();t.remove();return{x:b.x,y:b.y,w:b.width,h:b.height};}
+function centerOf(o){const b=bboxRaw(o);return{x:b.x+b.w/2,y:b.y+b.h/2};}
+
+// ---------- Render ----------
+function render(){
+  ensureGradDefs();
+  gBg.textContent="";
+  if(bg.href&&bg.visible){const im=el("image",{class:"bg-img",x:bg.x,y:bg.y,width:bg.w,height:bg.h,
+    preserveAspectRatio:"none",opacity:bg.opacity});
+    im.setAttributeNS("http://www.w3.org/1999/xlink","href",bg.href);im.setAttribute("href",bg.href);gBg.append(im);}
+  gShapes.textContent="";
+  objects.forEach(o=>{if(o.visible!==false)gShapes.append(buildEl(o));});
+  artBg.setAttribute("width",DOC.w);artBg.setAttribute("height",DOC.h);
+  renderGuides();renderOverlay();renderLayers();
+  $("#stCount").textContent=objects.length;$("#stDoc").textContent=`${DOC.w} × ${DOC.h} mm`;
+  applyView();
+}
+function renderGuides(){gGuides.textContent="";const sw=1/view.zoom;
+  if(show.bleed&&DOC.bleed>0)gGuides.append(el("rect",{class:"bleed-line","stroke-width":sw,
+    x:-DOC.bleed,y:-DOC.bleed,width:DOC.w+DOC.bleed*2,height:DOC.h+DOC.bleed*2}));
+  if(show.margin&&DOC.margin>0)gGuides.append(el("rect",{class:"margin-line","stroke-width":sw,
+    x:DOC.margin,y:DOC.margin,width:DOC.w-DOC.margin*2,height:DOC.h-DOC.margin*2}));
+  if(show.die&&DOC.die)renderDieline(sw);}
+function renderDieline(sw){const d=DOC.die;
+  if(d.type==="tuck"){const bw=d.w,dp=d.depth;
+    gGuides.append(el("rect",{class:"die-line","stroke-width":sw,x:0,y:0,width:DOC.w,height:DOC.h}));
+    let fx=0;[dp,bw,dp].forEach(pw=>{fx+=pw;gGuides.append(el("line",{class:"die-fold","stroke-width":sw,x1:fx,y1:0,x2:fx,y2:DOC.h}));});
+    gGuides.append(el("line",{class:"die-fold","stroke-width":sw,x1:0,y1:dp,x2:DOC.w,y2:dp}));
+    gGuides.append(el("line",{class:"die-fold","stroke-width":sw,x1:0,y1:DOC.h-dp,x2:DOC.w,y2:DOC.h-dp}));
+    guideLabel(dp/2,DOC.h/2,"Hông");guideLabel(dp+bw/2,DOC.h/2,"Trước");
+    guideLabel(dp*2+bw+bw/2,DOC.h/2,"Sau");guideLabel(DOC.w/2,dp/2,"Nắp");guideLabel(DOC.w/2,DOC.h-dp/2,"Đáy");
+  } else if(d.type==="pillow"){gGuides.append(el("rect",{class:"die-line","stroke-width":sw,x:0,y:0,width:DOC.w,height:DOC.h,rx:d.depth}));
+    gGuides.append(el("line",{class:"die-fold","stroke-width":sw,x1:0,y1:DOC.h/2,x2:DOC.w,y2:DOC.h/2}));}}
+function guideLabel(x,y,t){const l=el("text",{class:"guide-lbl",x,y,"text-anchor":"middle","font-size":3.2});l.textContent=t;gGuides.append(l);}
+
+function renderOverlay(){gOverlay.textContent="";const hs=1/view.zoom;
+  // anchor / curve editing
+  if((tool==="direct"||tool==="curve")&&selection.length===1){
+    const o=objects.find(x=>x.id===selection[0]);
+    if(o&&o.type==="path"){renderAnchors(o,hs,tool==="curve");return;}
+  }
+  if(!selection.length)return;
+  selection.forEach(id=>{const o=objects.find(x=>x.id===id);if(!o)return;const b=bboxRaw(o);
+    const box=el("rect",{class:"selbox","stroke-width":hs,x:b.x,y:b.y,width:b.w,height:b.h});
+    if(o.rotate){const c=centerOf(o);box.setAttribute("transform",`rotate(${o.rotate} ${c.x} ${c.y})`);}
+    gOverlay.append(box);});
+  if(selection.length===1&&tool==="select"){
+    const o=objects.find(x=>x.id===selection[0]),b=bboxRaw(o),s=7*hs,g=el("g");
+    if(o.rotate){const c=centerOf(o);g.setAttribute("transform",`rotate(${o.rotate} ${c.x} ${c.y})`);}
+    [["nw",b.x,b.y],["ne",b.x+b.w,b.y],["se",b.x+b.w,b.y+b.h],["sw",b.x,b.y+b.h],
+     ["n",b.x+b.w/2,b.y],["e",b.x+b.w,b.y+b.h/2],["s",b.x+b.w/2,b.y+b.h],["w",b.x,b.y+b.h/2]]
+     .forEach(([k,x,y])=>{const h=el("rect",{class:"handle","stroke-width":hs,x:x-s/2,y:y-s/2,width:s,height:s});h.dataset.handle=k;g.append(h);});
+    const rl=el("line",{class:"ctrl-line","stroke-width":hs,x1:b.x+b.w/2,y1:b.y,x2:b.x+b.w/2,y2:b.y-24*hs});
+    const rh=el("circle",{class:"rot-handle","stroke-width":hs,cx:b.x+b.w/2,cy:b.y-24*hs,r:4.5*hs});
+    rh.dataset.handle="rotate";g.append(rl,rh);gOverlay.append(g);
+    // gradient gizmo
+    if(o[colorTarget]&&o[colorTarget]!=="none"&&o[colorTarget].grad)renderGradGizmo(o,hs);
+  }
+}
+function renderAnchors(o,hs,curveMode){const segs=parsePath(o.attrs.d),s=6*hs;
+  // draw the outline emphasised
+  if(curveMode){ // show clickable segments
+    for(let i=1;i<segs.length;i++){const A=segs[i-1].p,B=segs[i].p;
+      const mid=segs[i].c1&&segs[i].c2?bezMid(A,segs[i].c1,segs[i].c2,B):{x:(A.x+B.x)/2,y:(A.y+B.y)/2};
+      const dot=el("circle",{class:"grad-mid",cx:mid.x,cy:mid.y,r:3*hs});dot.dataset.seg=i;gOverlay.append(dot);}
+  }
+  segs.forEach((seg,i)=>{
+    if(seg.c1){gOverlay.append(el("line",{class:"ctrl-line","stroke-width":hs,x1:seg.prev.x,y1:seg.prev.y,x2:seg.c1.x,y2:seg.c1.y}));
+      const cp=el("circle",{class:"ctrl-pt",cx:seg.c1.x,cy:seg.c1.y,r:3.5*hs});cp.dataset.anchor=i;cp.dataset.part="c1";gOverlay.append(cp);}
+    if(seg.c2){gOverlay.append(el("line",{class:"ctrl-line","stroke-width":hs,x1:seg.p.x,y1:seg.p.y,x2:seg.c2.x,y2:seg.c2.y}));
+      const cp=el("circle",{class:"ctrl-pt",cx:seg.c2.x,cy:seg.c2.y,r:3.5*hs});cp.dataset.anchor=i;cp.dataset.part="c2";gOverlay.append(cp);}});
+  segs.forEach((seg,i)=>{const h=el("rect",{class:"handle","stroke-width":hs,x:seg.p.x-s/2,y:seg.p.y-s/2,width:s,height:s});
+    h.dataset.anchor=i;h.dataset.part="p";gOverlay.append(h);});}
+function bezMid(A,c1,c2,B){const t=.5,mt=1-t;
+  return{x:mt*mt*mt*A.x+3*mt*mt*t*c1.x+3*mt*t*t*c2.x+t*t*t*B.x,
+         y:mt*mt*mt*A.y+3*mt*mt*t*c1.y+3*mt*t*t*c2.y+t*t*t*B.y};}
+function renderGradGizmo(o,hs){const b=bboxRaw(o),g=o[colorTarget].grad;
+  const cx=b.x+b.w/2,cy=b.y+b.h/2,r=Math.max(b.w,b.h)/2;
+  if(g.type==="linear"){const a=(g.angle||0)*Math.PI/180;
+    const x1=cx-Math.cos(a)*r,y1=cy-Math.sin(a)*r,x2=cx+Math.cos(a)*r,y2=cy+Math.sin(a)*r;
+    gOverlay.append(el("line",{class:"grad-gizmo-line","stroke-width":hs,x1,y1,x2,y2}));
+    g.stops.forEach(s=>{const px=x1+(x2-x1)*s.off,py=y1+(y2-y1)*s.off;
+      gOverlay.append(el("circle",{class:"grad-stop","stroke-width":hs,cx:px,cy:py,r:3.5*hs,fill:s.color.hex}));});
+  } else {
+    gOverlay.append(el("circle",{class:"grad-gizmo-line","stroke-width":hs,fill:"none",cx,cy,r}));
+    g.stops.forEach(s=>{gOverlay.append(el("circle",{class:"grad-stop","stroke-width":hs,cx:cx+r*s.off,cy,r:3.5*hs,fill:s.color.hex}));});
+  }}
+
+// ---------- Path parse ----------
+function parsePath(d){const t=d.match(/[MLCZ]|-?\d*\.?\d+/gi)||[];const segs=[];let i=0,cur={x:0,y:0},prev=null;
+  while(i<t.length){const c=t[i++].toUpperCase();
+    if(c==="M"){cur={x:+t[i++],y:+t[i++]};segs.push({p:{...cur},prev:null});prev={...cur};}
+    else if(c==="L"){cur={x:+t[i++],y:+t[i++]};segs.push({p:{...cur},prev:{...prev}});prev={...cur};}
+    else if(c==="C"){const c1={x:+t[i++],y:+t[i++]},c2={x:+t[i++],y:+t[i++]},p={x:+t[i++],y:+t[i++]};
+      segs.push({p,c1,c2,prev:{...prev}});prev={...p};cur=p;}
+    else if(c==="Z")segs.closed=true;}
+  return segs;}
+function segsToPath(segs){let d="";segs.forEach((s,i)=>{
+  if(i===0)d+=`M ${r2(s.p.x)} ${r2(s.p.y)} `;
+  else if(s.c1&&s.c2)d+=`C ${r2(s.c1.x)} ${r2(s.c1.y)} ${r2(s.c2.x)} ${r2(s.c2.y)} ${r2(s.p.x)} ${r2(s.p.y)} `;
+  else d+=`L ${r2(s.p.x)} ${r2(s.p.y)} `;});
+  if(segs.closed)d+="Z";return d.trim();}
+const r2=n=>Math.round(n*1000)/1000;
+function withPrev(segs){segs.forEach((s,i)=>{s.prev=i?{...segs[i-1].p}:null;});return segs;}
+
+// ---------- Layers ----------
+function renderLayers(){const w=$("#layers");w.innerHTML="";
+  if(!objects.length){w.innerHTML='<div class="empty">Chưa có đối tượng.</div>';return;}
+  [...objects].reverse().forEach(o=>{const row=document.createElement("div");
+    row.className="layer"+(selection.includes(o.id)?" sel":"")+(o.visible===false?" hidden":"");
+    row.innerHTML=`<span class="eye">${o.visible===false?"◌":"◉"}</span><div class="thumb">${miniSvg(o)}</div><div class="nm">${o.name}</div>`;
+    row.querySelector(".eye").onclick=e=>{e.stopPropagation();o.visible=o.visible===false?true:false;snapshot();render();};
+    row.onclick=()=>selectOnly(o.id);
+    row.ondblclick=()=>{const n=prompt("Đổi tên lớp:",o.name);if(n){o.name=n;render();}};
+    w.append(row);});}
+function miniSvg(o){const b=bboxRaw(o),pad=2,scale=16/Math.max(b.w,b.h,1);
+  const c=buildEl(o).cloneNode(true);
+  const f=o.fill&&o.fill!=="none"?(o.fill.grad?o.fill.stops?.[0]?.color?.hex:o.fill.hex):null;
+  if(f)c.setAttribute("fill",o.fill.grad?o.fill.grad.stops[0].color.hex:o.fill.hex);
+  c.setAttribute("transform",`translate(${pad-b.x*scale},${pad-b.y*scale}) scale(${scale})`);
+  return`<svg viewBox="0 0 20 20">${new XMLSerializer().serializeToString(c)}</svg>`;}
+
+// ---------- Selection & props ----------
+function selectOnly(id){selection=id?[id]:[];syncProps();render();}
+function syncProps(){
+  const o=selection.length===1?objects.find(x=>x.id===selection[0]):null;
+  $("#stSel").innerHTML=selection.length?`Đã chọn: <b>${selection.length}</b>`:"";
+  if(o){
+    const paint=o[colorTarget];
+    if(paint&&paint!=="none"){
+      if(paint.grad){setPaintType(paint.grad.type,true);gradStops=paint.grad.stops.map(s=>({...s,color:{...s.color}}));gradAngle=paint.grad.angle||0;selStop=0;loadColor(gradStops[0].color);}
+      else{setPaintType("solid",true);loadColor(paint);}
+    }
+    $("#strokeWidth").value=o.strokeWidth;$("#fillOpacity").value=(o.fillOpacity??1)*100;
+    const b=bboxRaw(o);$("#posX").value=Math.round(b.x);$("#posY").value=Math.round(b.y);
+    $("#dimW").value=Math.round(b.w);$("#dimH").value=Math.round(b.h);$("#rot").value=Math.round(o.rotate||0);
+  }else{
+    ["#posX","#posY","#dimW","#dimH"].forEach(s=>$(s).value="");
+    const paint=style[colorTarget];if(paint&&paint!=="none")loadColor(paint);
+    $("#strokeWidth").value=style.strokeWidth;$("#fillOpacity").value=style.fillOpacity*100;
+  }
+  refreshGradUI();
+  updatePaintToggleUI();
+}
+function loadColor(col){if(!col||col==="none")return;
+  const[r,g,b]=hexToRgb(col.hex);hsv=rgbToHsv(r,g,b);
+  if(colorMode==="cmyk"){const cm=col.cmyk||rgbToCmyk(r,g,b);
+    $("#cC").value=cm[0];$("#cM").value=cm[1];$("#cY").value=cm[2];$("#cK").value=cm[3];}
+  else{$("#rgbPick").value=col.hex;$("#rgbHex").value=col.hex;}
+  updatePickerUI();updateColorPrev();}
+function currentColorObj(){
+  if(colorMode==="cmyk"){const c=+$("#cC").value,m=+$("#cM").value,y=+$("#cY").value,k=+$("#cK").value;
+    return{mode:"cmyk",cmyk:[c,m,y,k],hex:cmykToHex(c,m,y,k)};}
+  const hex=$("#rgbHex").value;return{mode:"rgb",hex,cmyk:rgbToCmyk(...hexToRgb(hex))};}
+function updateColorPrev(){$("#colorPrev").style.background=currentColorObj().hex;updateSwatch();}
+function updateSwatch(){
+  $("#swFill").style.background=style.fill==="none"?"#0000":(style.fill.grad?`linear-gradient(90deg,${style.fill.stops?.map(s=>s.color.hex).join(",")||style.fill.hex})`:style.fill.hex);
+  $("#swStroke").style.background=style.stroke==="none"?"#0000":style.stroke.hex;}
+
+// ---------- Color picker interactions ----------
+function updatePickerUI(){
+  const[r,g,b]=hsvToRgb(hsv.h,1,1);
+  $("#svBox").style.background=`rgb(${r},${g},${b})`;
+  $("#svCursor").style.left=(hsv.s*100)+"%";
+  $("#svCursor").style.top=((1-hsv.v)*100)+"%";
+  $("#hueCursor").style.left=(hsv.h/360*100)+"%";
+}
+function pickerToColor(){const[r,g,b]=hsvToRgb(hsv.h,hsv.s,hsv.v);
+  if(colorMode==="cmyk"){const cm=rgbToCmyk(r,g,b);$("#cC").value=cm[0];$("#cM").value=cm[1];$("#cY").value=cm[2];$("#cK").value=cm[3];}
+  else{const hex=rgbToHex(r,g,b);$("#rgbPick").value=hex;$("#rgbHex").value=hex;}
+  updatePickerUI();updateColorPrev();liveApply();}
+let svDrag=false,hueDrag=false;
+$("#svBox").addEventListener("pointerdown",e=>{svDrag=true;svMove(e);});
+$("#hueBar").addEventListener("pointerdown",e=>{hueDrag=true;hueMove(e);});
+window.addEventListener("pointermove",e=>{if(svDrag)svMove(e);if(hueDrag)hueMove(e);});
+window.addEventListener("pointerup",()=>{if(svDrag||hueDrag){svDrag=hueDrag=false;}});
+function svMove(e){const r=$("#svBox").getBoundingClientRect();
+  hsv.s=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  hsv.v=Math.max(0,Math.min(1,1-(e.clientY-r.top)/r.height));pickerToColor();}
+function hueMove(e){const r=$("#hueBar").getBoundingClientRect();
+  hsv.h=Math.max(0,Math.min(360,(e.clientX-r.left)/r.width*360));pickerToColor();}
+
+// live apply to selection / gradient stop
+function liveApply(){const col=currentColorObj();
+  if(paintType!=="solid"){ // update selected gradient stop
+    gradStops[selStop].color=col; refreshGradUI();
+    if(selection.length){applyPaintToSel();}
+  } else {
+    if(selection.length){objects.filter(o=>selection.includes(o.id)).forEach(o=>o[colorTarget]=JSON.parse(JSON.stringify(col)));render();}
+    else style[colorTarget]=col;updateSwatch();
+  }
+}
+
+// ---------- Gradient UI ----------
+function setPaintType(t,fromSync){paintType=t;
+  $("#ptSolid").classList.toggle("on",t==="solid");
+  $("#ptLinear").classList.toggle("on",t==="linear");
+  $("#ptRadial").classList.toggle("on",t==="radial");
+  $("#gradEditor").style.display=t==="solid"?"none":"block";
+  if(!fromSync&&t!=="solid"&&gradStops.length<2)gradStops=[{off:0,color:currentColorObj()},{off:1,color:mkCol(0,0,0,0)}];
+  refreshGradUI();
+}
+$("#ptSolid").onclick=()=>{setPaintType("solid");if(selection.length)applyPaintToSel();};
+$("#ptLinear").onclick=()=>{setPaintType("linear");if(selection.length)applyPaintToSel();};
+$("#ptRadial").onclick=()=>{setPaintType("radial");if(selection.length)applyPaintToSel();};
+$("#gradAngle").oninput=e=>{gradAngle=+e.target.value;$("#gradAngleVal").textContent=gradAngle+"°";
+  refreshGradUI();if(selection.length)applyPaintToSel();};
+function refreshGradUI(){
+  $("#gradAngle").value=gradAngle;$("#gradAngleVal").textContent=gradAngle+"°";
+  if(paintType==="solid")return;
+  const css=gradStops.map(s=>`${s.color.hex} ${(s.off*100).toFixed(0)}%`).join(",");
+  $("#gradFill").style.background=`linear-gradient(90deg,${css})`;
+  const strip=$("#gradStrip");strip.querySelectorAll(".gstop").forEach(n=>n.remove());
+  gradStops.forEach((s,i)=>{const el2=document.createElement("div");el2.className="gstop"+(i===selStop?" sel":"");
+    el2.style.left=(s.off*100)+"%";
+    el2.innerHTML=`<div class="stem"></div><div class="knob" style="background:${s.color.hex}"></div>`;
+    el2.onpointerdown=ev=>{ev.stopPropagation();selStop=i;loadColor(s.color);refreshGradUI();startStopDrag(ev,i);};
+    el2.ondblclick=ev=>{ev.stopPropagation();if(gradStops.length>2){gradStops.splice(i,1);selStop=0;refreshGradUI();if(selection.length)applyPaintToSel();}};
+    strip.append(el2);});
+}
+$("#gradStrip").addEventListener("pointerdown",e=>{if(e.target.closest(".gstop"))return;
+  const r=$("#gradStrip").getBoundingClientRect();const off=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+  gradStops.push({off,color:currentColorObj()});gradStops.sort((a,b)=>a.off-b.off);
+  selStop=gradStops.findIndex(s=>s.off===off);refreshGradUI();if(selection.length)applyPaintToSel();});
+function startStopDrag(ev,i){const strip=$("#gradStrip").getBoundingClientRect();
+  const move=e=>{const off=Math.max(0,Math.min(1,(e.clientX-strip.left)/strip.width));
+    gradStops[i].off=off;refreshGradUI();if(selection.length)applyPaintToSel();};
+  const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);
+    gradStops.sort((a,b)=>a.off-b.off);selStop=Math.max(0,Math.min(gradStops.length-1,selStop));if(selection.length)snapshot();};
+  window.addEventListener("pointermove",move);window.addEventListener("pointerup",up);}
+function currentPaint(){
+  if(paintType==="solid")return currentColorObj();
+  return{grad:{id:"grad"+(gradSeq++),type:paintType,angle:gradAngle,
+    stops:gradStops.map(s=>({off:s.off,color:JSON.parse(JSON.stringify(s.color))}))}};
+}
+function applyPaintToSel(){const p=currentPaint();
+  objects.filter(o=>selection.includes(o.id)).forEach(o=>o[colorTarget]=JSON.parse(JSON.stringify(p)));
+  render();updateSwatch();}
+
+// ---------- Create ----------
+function addObject(o){o.id=idSeq++;o.name=o.name||typeName(o.type)+" "+o.id;o.visible=true;objects.push(o);return o;}
+function typeName(t){return{rect:"Chữ nhật",ellipse:"Elip",line:"Đường",path:"Đường vẽ",poly:"Đa giác",star:"Ngôi sao",text:"Chữ",image:"Vùng ảnh"}[t]||"Hình";}
+function defStyle(){return{fill:clonePaint(style.fill),stroke:clonePaint(style.stroke),
+  strokeWidth:style.strokeWidth,fillOpacity:style.fillOpacity,rotate:0};}
+function clonePaint(p){return p==="none"?"none":JSON.parse(JSON.stringify(p));}
+
+// =============== POINTER ===============
+let drag=null,spaceHeld=false;
+svg.addEventListener("pointerdown",onDown);
+window.addEventListener("pointermove",onMove);
+window.addEventListener("pointerup",onUp);
+
+function onDown(e){
+  if(e.button===1)return;
+  const p=screenToWorld(e.clientX,e.clientY);
+  const active=(spaceHeld||tool==="hand")?"hand":tool;
+  if(active==="hand"){drag={mode:"pan",sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y};stage.classList.add("grabbing");return;}
+  if(active==="pen"){penDown(p);return;}
+  if(active==="text"){addText(p);return;}
+
+  const ht=e.target.dataset.handle,an=e.target.dataset.anchor,seg=e.target.dataset.seg;
+  if(ht&&selection.length===1){const o=objects.find(x=>x.id===selection[0]);
+    drag={mode:ht==="rotate"?"rotate":"resize",handle:ht,o,start:p,b0:bboxRaw(o),c0:centerOf(o)};return;}
+  // curve tool: drag a segment midpoint to bend
+  if(seg!==undefined&&tool==="curve"&&selection.length===1){const o=objects.find(x=>x.id===selection[0]);
+    drag={mode:"bend",o,idx:+seg,segs:parsePath(o.attrs.d),start:p};return;}
+  if(an!==undefined&&(tool==="direct"||tool==="curve")&&selection.length===1){const o=objects.find(x=>x.id===selection[0]);
+    drag={mode:"anchor",o,idx:+an,part:e.target.dataset.part,segs:parsePath(o.attrs.d)};return;}
+
+  if(["rect","ellipse","line","poly","star","image"].includes(active)){drag={mode:"draw",tool:active,start:p,cur:p};return;}
+  const hit=e.target.dataset.id;
+  if(hit){const id=+hit;
+    if(e.shiftKey){selection.includes(id)?selection.splice(selection.indexOf(id),1):selection.push(id);syncProps();render();}
+    else if(!selection.includes(id))selectOnly(id);
+    drag={mode:"move",start:p,orig:objects.filter(o=>selection.includes(o.id)).map(o=>({o,snap:JSON.parse(JSON.stringify(o.attrs))}))};
+  }else{if(!e.shiftKey)selection=[];drag={mode:"marquee",start:p,cur:p};syncProps();render();}
+}
+function onMove(e){const p=screenToWorld(e.clientX,e.clientY);
+  $("#stXY").textContent=`${Math.round(p.x)}, ${Math.round(p.y)}`;
+  if(penSegs&&!drag)drawPenLive(p);
+  if(!drag)return;
+  if(drag.mode==="pan"){view.x=drag.vx+(e.clientX-drag.sx);view.y=drag.vy+(e.clientY-drag.sy);applyView();return;}
+  if(drag.mode==="draw"){drag.cur=p;drawPreview(drag);return;}
+  if(drag.mode==="marquee"){drag.cur=p;marqueePreview(drag);return;}
+  if(drag.mode==="move"){const dx=p.x-drag.start.x,dy=p.y-drag.start.y;
+    drag.orig.forEach(({o,snap})=>translateAttrs(o,snap,dx,dy));render();syncProps();return;}
+  if(drag.mode==="resize"){doResize(drag,p,e.shiftKey);render();syncProps();return;}
+  if(drag.mode==="rotate"){const ang=Math.atan2(p.y-drag.c0.y,p.x-drag.c0.x)*180/Math.PI+90;
+    drag.o.rotate=e.shiftKey?Math.round(ang/15)*15:Math.round(ang);render();syncProps();return;}
+  if(drag.mode==="anchor"){const s=drag.segs[drag.idx];
+    if(drag.part==="p"){const ox=p.x-s.p.x,oy=p.y-s.p.y;s.p={x:p.x,y:p.y};
+      if(s.c2){s.c2.x+=ox;s.c2.y+=oy;}const nx=drag.segs[drag.idx+1];if(nx&&nx.c1){nx.c1.x+=ox;nx.c1.y+=oy;}}
+    else if(drag.part==="c1")s.c1={x:p.x,y:p.y};else if(drag.part==="c2")s.c2={x:p.x,y:p.y};
+    drag.o.attrs.d=segsToPath(withPrev(drag.segs));render();return;}
+  if(drag.mode==="bend"){bendSegment(drag,p);render();return;}
+}
+function onUp(e){stage.classList.remove("grabbing");
+  if(drag&&drag.mode==="pen-handle"){drag=null;drawPenLive();return;}
+  if(!drag)return;
+  if(drag.mode==="draw")finalizeDraw(drag);
+  else if(drag.mode==="marquee"){finalizeMarquee(drag);gOverlay.querySelector(".marquee")?.remove();}
+  else if(["move","resize","rotate","anchor","bend"].includes(drag.mode))snapshot();
+  drag=null;}
+
+// Bend a straight/curved segment so it passes through pointer at t=0.5
+function bendSegment(d,p){const segs=d.segs,i=d.idx,A=segs[i-1].p,B=segs[i].p;
+  // We want cubic where point at t=.5 equals p. For symmetric handles:
+  // B(.5)= .125A + .375c1 + .375c2 + .125B ; choose c1=c2=Q → Q=(p - .125(A+B))/.75
+  const Qx=(p.x-0.125*(A.x+B.x))/0.75, Qy=(p.y-0.125*(A.y+B.y))/0.75;
+  segs[i].c1={x:A.x+(Qx-A.x)*0.66,y:A.y+(Qy-A.y)*0.66};
+  segs[i].c2={x:B.x+(Qx-B.x)*0.66,y:B.y+(Qy-B.y)*0.66};
+  // simpler: place both controls at Q for a clean arc
+  segs[i].c1={x:Qx,y:Qy};segs[i].c2={x:Qx,y:Qy};
+  d.o.attrs.d=segsToPath(withPrev(segs));}
+
+function translateAttrs(o,snap,dx,dy){const a=o.attrs;
+  if(o.type==="rect"||o.type==="image"){a.x=+snap.x+dx;a.y=+snap.y+dy;}
+  else if(o.type==="ellipse"){a.cx=+snap.cx+dx;a.cy=+snap.cy+dy;}
+  else if(o.type==="line"){a.x1=+snap.x1+dx;a.y1=+snap.y1+dy;a.x2=+snap.x2+dx;a.y2=+snap.y2+dy;}
+  else if(o.type==="text"){a.x=+snap.x+dx;a.y=+snap.y+dy;}
+  else{const segs=parsePath(snap.d);segs.forEach(s=>{s.p.x+=dx;s.p.y+=dy;
+    if(s.c1){s.c1.x+=dx;s.c1.y+=dy;}if(s.c2){s.c2.x+=dx;s.c2.y+=dy;}});a.d=segsToPath(segs);}}
+function doResize(d,p,keep){const{handle,o,b0}=d;let{x,y,w,h}=b0,nx=x,ny=y,nw=w,nh=h;
+  if(handle.includes("e"))nw=Math.max(1,p.x-x);if(handle.includes("s"))nh=Math.max(1,p.y-y);
+  if(handle.includes("w")){nw=Math.max(1,x+w-p.x);nx=p.x;}if(handle.includes("n")){nh=Math.max(1,y+h-p.y);ny=p.y;}
+  if(keep&&w&&h){const r=w/h;if(nw/nh>r)nw=nh*r;else nh=nw/r;}scaleObjTo(o,b0,{x:nx,y:ny,w:nw,h:nh});}
+function scaleObjTo(o,b0,nb){const sx=nb.w/(b0.w||1),sy=nb.h/(b0.h||1),a=o.attrs;
+  const map=(px,py)=>({x:nb.x+(px-b0.x)*sx,y:nb.y+(py-b0.y)*sy});
+  if(o.type==="rect"||o.type==="image"){a.x=nb.x;a.y=nb.y;a.width=nb.w;a.height=nb.h;}
+  else if(o.type==="ellipse"){a.cx=nb.x+nb.w/2;a.cy=nb.y+nb.h/2;a.rx=nb.w/2;a.ry=nb.h/2;}
+  else if(o.type==="line"){const p1=map(+a.x1,+a.y1),p2=map(+a.x2,+a.y2);a.x1=p1.x;a.y1=p1.y;a.x2=p2.x;a.y2=p2.y;}
+  else if(o.type==="text"){a.x=nb.x;a.y=nb.y+nb.h;a.size=Math.max(1,a.size*sy);}
+  else{const segs=parsePath(a.d);segs.forEach(s=>{s.p=map(s.p.x,s.p.y);if(s.c1)s.c1=map(s.c1.x,s.c1.y);if(s.c2)s.c2=map(s.c2.x,s.c2.y);});a.d=segsToPath(segs);}}
+
+let previewEl=null;
+function drawPreview(d){previewEl?.remove();const o=makeShape(d.tool,d.start,d.cur);
+  previewEl=buildEl(o);previewEl.setAttribute("opacity",.85);gShapes.append(previewEl);}
+function finalizeDraw(d){previewEl?.remove();previewEl=null;
+  if(Math.abs(d.cur.x-d.start.x)<1&&Math.abs(d.cur.y-d.start.y)<1)d.cur={x:d.start.x+30,y:d.start.y+20};
+  const o=makeShape(d.tool,d.start,d.cur);addObject(o);selectOnly(o.id);snapshot();setTool("select");}
+function makeShape(t,a,b){const x=Math.min(a.x,b.x),y=Math.min(a.y,b.y),w=Math.abs(b.x-a.x),h=Math.abs(b.y-a.y);
+  const base=defStyle();
+  if(t==="rect")return{...base,type:"rect",attrs:{x:r2(x),y:r2(y),width:r2(w),height:r2(h)}};
+  if(t==="ellipse")return{...base,type:"ellipse",attrs:{cx:r2(x+w/2),cy:r2(y+h/2),rx:r2(w/2),ry:r2(h/2)}};
+  if(t==="line")return{...base,type:"line",fill:"none",attrs:{x1:r2(a.x),y1:r2(a.y),x2:r2(b.x),y2:r2(b.y)}};
+  if(t==="poly")return{...base,type:"poly",attrs:{d:polyPath(x+w/2,y+h/2,w/2,h/2,5)}};
+  if(t==="star")return{...base,type:"star",attrs:{d:starPath(x+w/2,y+h/2,w/2,h/2,5)}};
+  if(t==="image")return{...base,type:"image",fill:"none",stroke:"none",
+    attrs:{x:r2(x),y:r2(y),width:r2(w),height:r2(h),href:""}};}
+function polyPath(cx,cy,rx,ry,n){let d="";for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n;
+  d+=(i?"L":"M")+" "+r2(cx+Math.cos(a)*rx)+" "+r2(cy+Math.sin(a)*ry)+" ";}return d+"Z";}
+function starPath(cx,cy,rx,ry,n){let d="";for(let i=0;i<n*2;i++){const a=-Math.PI/2+i*Math.PI/n,rr=i%2?.45:1;
+  d+=(i?"L":"M")+" "+r2(cx+Math.cos(a)*rx*rr)+" "+r2(cy+Math.sin(a)*ry*rr)+" ";}return d+"Z";}
+function addText(p){const txt=prompt("Nhập nội dung chữ:","Nhãn sản phẩm");if(!txt)return;
+  const o={...defStyle(),type:"text",stroke:"none",attrs:{x:r2(p.x),y:r2(p.y),text:txt,size:6,font:"Arial",weight:"bold"}};
+  addObject(o);selectOnly(o.id);snapshot();setTool("select");}
+
+function marqueePreview(d){gOverlay.querySelector(".marquee")?.remove();
+  const x=Math.min(d.start.x,d.cur.x),y=Math.min(d.start.y,d.cur.y),w=Math.abs(d.cur.x-d.start.x),h=Math.abs(d.cur.y-d.start.y);
+  gOverlay.append(el("rect",{class:"marquee","stroke-width":1/view.zoom,x,y,width:w,height:h}));}
+function finalizeMarquee(d){const x=Math.min(d.start.x,d.cur.x),y=Math.min(d.start.y,d.cur.y),
+  w=Math.abs(d.cur.x-d.start.x),h=Math.abs(d.cur.y-d.start.y);if(w<1&&h<1){render();return;}
+  objects.forEach(o=>{const b=bboxRaw(o);
+    if(b.x>=x&&b.y>=y&&b.x+b.w<=x+w&&b.y+b.h<=y+h&&!selection.includes(o.id))selection.push(o.id);});syncProps();render();}
+
+// =============== PEN ===============
+let penSegs=null;
+function penDown(p){if(!penSegs)penSegs=[];
+  if(penSegs.length>1){const f=penSegs[0].p;if(Math.hypot(f.x-p.x,f.y-p.y)<6/view.zoom){finishPen(true);return;}}
+  const seg={p:{x:p.x,y:p.y}};penSegs.push(seg);drag={mode:"pen-handle",seg};drawPenLive();}
+window.addEventListener("pointermove",e=>{if(drag&&drag.mode==="pen-handle"){
+  const p=screenToWorld(e.clientX,e.clientY);drag.seg.c2={x:p.x,y:p.y};
+  drag.seg.c1sym={x:2*drag.seg.p.x-p.x,y:2*drag.seg.p.y-p.y};drawPenLive();}});
+function buildPenSegs(){const out=[];penSegs.forEach((s,i)=>{if(i===0){out.push({p:{...s.p}});return;}
+  const prev=penSegs[i-1];
+  if(prev.c1sym||prev.c2||s.c2)out.push({p:{...s.p},c1:{...(prev.c1sym||prev.c2||prev.p)},c2:{...(s.c2||s.p)}});
+  else out.push({p:{...s.p}});});return out;}
+function drawPenLive(hoverP){gOverlay.querySelectorAll(".pen-live").forEach(n=>n.remove());
+  const g=el("g",{class:"pen-live"}),built=buildPenSegs();
+  if(built.length){const d=segsToPath(built)+(hoverP?` L ${hoverP.x} ${hoverP.y}`:"");
+    g.append(el("path",{d,fill:"none",stroke:style.stroke==="none"?"#2f8fff":style.stroke.hex,"stroke-width":1/view.zoom}));}
+  penSegs.forEach(s=>{if(s.c2){g.append(el("line",{class:"ctrl-line","stroke-width":1/view.zoom,x1:s.p.x,y1:s.p.y,x2:s.c2.x,y2:s.c2.y}));
+    g.append(el("circle",{class:"ctrl-pt",cx:s.c2.x,cy:s.c2.y,r:3/view.zoom}));}
+    g.append(el("rect",{class:"handle","stroke-width":1/view.zoom,x:s.p.x-3/view.zoom,y:s.p.y-3/view.zoom,width:6/view.zoom,height:6/view.zoom}));});
+  gOverlay.append(g);}
+function finishPen(close){if(penSegs&&penSegs.length>1){const built=buildPenSegs();if(close)built.closed=true;
+  const o={...defStyle(),type:"path",attrs:{d:segsToPath(built)},fill:close?clonePaint(style.fill):"none"};
+  addObject(o);selectOnly(o.id);snapshot();}
+  penSegs=null;gOverlay.querySelectorAll(".pen-live").forEach(n=>n.remove());render();}
+
+// =============== UI ===============
+function setTool(t){tool=t;if(t!=="pen"&&penSegs)finishPen(false);
+  document.querySelectorAll(".tool").forEach(b=>b.classList.toggle("active",b.dataset.tool===t));
+  $("#stTool").textContent={select:"Chọn",direct:"Chỉnh điểm neo",curve:"Uốn cong",pen:"Bút",rect:"Chữ nhật",
+    ellipse:"Elip",poly:"Đa giác",star:"Ngôi sao",line:"Đường thẳng",text:"Chữ",image:"Vùng ảnh",hand:"Kéo canvas"}[t];
+  stage.classList.toggle("pan",t==="hand");
+  svg.style.cursor=(t==="select"||t==="direct"||t==="curve")?"default":(t==="hand"?"grab":"crosshair");renderOverlay();}
+document.querySelectorAll(".tool").forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+
+// color mode & target
+$("#modeCmyk").onclick=()=>{colorMode="cmyk";$("#modeCmyk").classList.add("on");$("#modeRgb").classList.remove("on");
+  $("#cmykBox").style.display="grid";$("#rgbBox").style.display="none";$("#modeTag").textContent="CMYK";$("#modeTag").className="tag cmyk";syncProps();};
+$("#modeRgb").onclick=()=>{colorMode="rgb";$("#modeRgb").classList.add("on");$("#modeCmyk").classList.remove("on");
+  $("#cmykBox").style.display="none";$("#rgbBox").style.display="block";$("#modeTag").textContent="RGB";$("#modeTag").className="tag rgb";syncProps();};
+$("#targetFill").onclick=()=>{colorTarget="fill";$("#targetFill").classList.add("on");$("#targetStroke").classList.remove("on");syncProps();};
+$("#targetStroke").onclick=()=>{colorTarget="stroke";$("#targetStroke").classList.add("on");$("#targetFill").classList.remove("on");syncProps();};
+["cC","cM","cY","cK"].forEach(id=>$("#"+id).oninput=()=>{const[r,g,b]=hexToRgb(currentColorObj().hex);hsv=rgbToHsv(r,g,b);updatePickerUI();updateColorPrev();liveApply();});
+$("#rgbPick").oninput=e=>{$("#rgbHex").value=e.target.value;const[r,g,b]=hexToRgb(e.target.value);hsv=rgbToHsv(r,g,b);updatePickerUI();updateColorPrev();liveApply();};
+$("#rgbHex").onchange=e=>{$("#rgbPick").value=e.target.value;const[r,g,b]=hexToRgb(e.target.value);hsv=rgbToHsv(r,g,b);updatePickerUI();updateColorPrev();liveApply();};
+$("#applyColor").onclick=()=>{if(!selection.length)return;
+  if(paintType==="solid"){const col=currentColorObj();objects.filter(o=>selection.includes(o.id)).forEach(o=>o[colorTarget]=JSON.parse(JSON.stringify(col)));}
+  else applyPaintToSel();snapshot();render();};
+$("#noFill").onclick=()=>{if(selection.length){objects.filter(o=>selection.includes(o.id)).forEach(o=>o[colorTarget]="none");snapshot();render();}
+  else style[colorTarget]="none";updateSwatch();};
+
+// bật/tắt nền (fill) và viền (stroke), giữ lại màu cũ để khôi phục
+function togglePaint(which){ // which = 'fill' | 'stroke'
+  const mem=which==="fill"?"_fillMem":"_strokeMem";
+  const targets=selection.length?objects.filter(o=>selection.includes(o.id)):null;
+  if(targets){
+    // xác định trạng thái chung: nếu bất kỳ cái nào đang bật thì hành động = tắt
+    const anyOn=targets.some(o=>o[which]&&o[which]!=="none");
+    targets.forEach(o=>{
+      if(anyOn){ // tắt
+        if(o[which]&&o[which]!=="none")o[mem]=JSON.parse(JSON.stringify(o[which]));
+        o[which]="none";
+      }else{ // bật lại
+        o[which]=o[mem]?JSON.parse(JSON.stringify(o[mem])):(which==="fill"?currentPaint():currentColorObj());
+        if(which==="stroke"&&(!o.strokeWidth||o.strokeWidth<=0))o.strokeWidth=style.strokeWidth||0.5;
+      }
+    });
+    snapshot();render();syncProps();
+  }else{ // không chọn gì → chỉnh style mặc định
+    if(style[which]&&style[which]!=="none"){style[mem]=JSON.parse(JSON.stringify(style[which]));style[which]="none";}
+    else style[which]=style[mem]?JSON.parse(JSON.stringify(style[mem])):currentColorObj();
+    updateSwatch();
+  }
+  updatePaintToggleUI();
+}
+$("#tgFill").onclick=()=>togglePaint("fill");
+$("#tgStroke").onclick=()=>togglePaint("stroke");
+function updatePaintToggleUI(){
+  const o=selection.length===1?objects.find(x=>x.id===selection[0]):null;
+  const f=o?o.fill:style.fill, s=o?o.stroke:style.stroke;
+  const fOn=f&&f!=="none", sOn=s&&s!=="none";
+  $("#tgFill").classList.toggle("on",fOn);$("#tgFill").textContent=(fOn?"● Nền: Bật":"● Nền: Tắt");
+  $("#tgStroke").classList.toggle("on",sOn);$("#tgStroke").textContent=(sOn?"○ Viền: Bật":"○ Viền: Tắt");
+}
+$("#strokeWidth").oninput=e=>{const v=+e.target.value;
+  if(selection.length){objects.filter(o=>selection.includes(o.id)).forEach(o=>o.strokeWidth=v);render();}else style.strokeWidth=v;};
+$("#fillOpacity").oninput=e=>{const v=+e.target.value/100;
+  if(selection.length){objects.filter(o=>selection.includes(o.id)).forEach(o=>o.fillOpacity=v);render();}else style.fillOpacity=v;};
+
+// document
+$("#preset").onchange=e=>{const v=e.target.value;$("#dieRow").style.display="none";
+  if(v==="custom")return;
+  if(v.startsWith("die-")){$("#dieRow").style.display="flex";
+    const bw=+$("#docW").value||60,bh=+$("#docH").value||90,dp=+$("#dieDepth").value||30;
+    if(v==="die-tuck"){$("#docW").value=dp*2+bw*2;$("#docH").value=bh+dp*2;}}
+  else{const[w,h]=v.split(",").map(Number);$("#docW").value=w;$("#docH").value=h;}};
+$("#dieDepth").onchange=()=>{if($("#preset").value.startsWith("die-"))$("#preset").onchange({target:$("#preset")});};
+$("#applyDoc").onclick=()=>{const v=$("#preset").value;
+  DOC.w=Math.max(10,+$("#docW").value);DOC.h=Math.max(10,+$("#docH").value);
+  DOC.bleed=Math.max(0,+$("#bleed").value);DOC.margin=Math.max(0,+$("#margin").value);
+  if(v.startsWith("die-")){const dp=+$("#dieDepth").value;
+    DOC.die=v==="die-tuck"?{type:"tuck",w:(DOC.w-2*dp)/2,h:DOC.h-2*dp,depth:dp}:{type:"pillow",depth:dp};
+    show.die=true;$("#tglDie").classList.add("on");}else DOC.die=null;
+  snapshot();render();fitView();};
+function syncDocInputs(){$("#docW").value=DOC.w;$("#docH").value=DOC.h;$("#bleed").value=DOC.bleed;$("#margin").value=DOC.margin;}
+$("#tglBleed").onclick=()=>{show.bleed=!show.bleed;$("#tglBleed").classList.toggle("on",show.bleed);render();};
+$("#tglMargin").onclick=()=>{show.margin=!show.margin;$("#tglMargin").classList.toggle("on",show.margin);render();};
+$("#tglDie").onclick=()=>{show.die=!show.die;$("#tglDie").classList.toggle("on",show.die);render();};
+
+function onTransform(){if(selection.length!==1)return;const o=objects.find(x=>x.id===selection[0]),b=bboxRaw(o);
+  scaleObjTo(o,b,{x:+$("#posX").value,y:+$("#posY").value,w:Math.max(1,+$("#dimW").value),h:Math.max(1,+$("#dimH").value)});
+  o.rotate=+$("#rot").value||0;snapshot();render();}
+["#posX","#posY","#dimW","#dimH","#rot"].forEach(s=>$(s).onchange=onTransform);
+
+$("#undoBtn").onclick=undo;$("#redoBtn").onclick=redo;
+$("#delBtn").onclick=deleteSel;$("#dupBtn").onclick=duplicateSel;
+$("#frontBtn").onclick=()=>reorder(1);$("#backBtn").onclick=()=>reorder(-1);
+$("#newDoc").onclick=()=>{if(confirm("Tạo bản vẽ mới?")){objects=[];selection=[];idSeq=1;snapshot();render();}};
+$("#clearAll").onclick=()=>{if(objects.length&&confirm("Xóa toàn bộ?")){objects=[];selection=[];snapshot();render();}};
+$("#zoomIn").onclick=()=>zoomAt(1.2);$("#zoomOut").onclick=()=>zoomAt(1/1.2);$("#zoomFit").onclick=fitView;
+$("#exportSvg").onclick=exportSVG;$("#exportPdf").onclick=()=>exportPDF(false);$("#exportAi").onclick=()=>exportPDF(true);
+
+function deleteSel(){if(!selection.length)return;objects=objects.filter(o=>!selection.includes(o.id));selection=[];snapshot();syncProps();render();}
+function duplicateSel(){if(!selection.length)return;
+  const c=objects.filter(o=>selection.includes(o.id)).map(o=>{const n=JSON.parse(JSON.stringify(o));n.id=idSeq++;n.name=o.name+" copy";
+    translateAttrs(n,JSON.parse(JSON.stringify(n.attrs)),5,5);return n;});objects.push(...c);selection=c.map(x=>x.id);snapshot();render();}
+function reorder(dir){if(selection.length!==1)return;const i=objects.findIndex(o=>o.id===selection[0]);
+  const ni=i+dir;if(ni<0||ni>=objects.length)return;[objects[i],objects[ni]]=[objects[ni],objects[i]];snapshot();render();}
+
+function zoomAt(f,cx,cy){const r=svg.getBoundingClientRect();cx=cx??r.width/2;cy=cy??r.height/2;
+  const wx=(cx-view.x)/view.zoom,wy=(cy-view.y)/view.zoom;
+  view.zoom=Math.min(30,Math.max(.2,view.zoom*f));view.x=cx-wx*view.zoom;view.y=cy-wy*view.zoom;render();}
+stage.addEventListener("wheel",e=>{e.preventDefault();const r=svg.getBoundingClientRect();
+  zoomAt(e.deltaY<0?1.12:1/1.12,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+function fitView(){const r=svg.getBoundingClientRect(),pad=50,bx=DOC.bleed||0;
+  const z=Math.min((r.width-pad*2)/(DOC.w+bx*2),(r.height-pad*2)/(DOC.h+bx*2));
+  view.zoom=z;view.x=(r.width-DOC.w*z)/2;view.y=(r.height-DOC.h*z)/2;render();}
+
+window.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
+  if(e.code==="Space"){spaceHeld=true;stage.classList.add("pan");return;}
+  if(e.ctrlKey||e.metaKey){if(e.key==="z"){e.preventDefault();e.shiftKey?redo():undo();}
+    else if(e.key==="y"){e.preventDefault();redo();}else if(e.key==="d"){e.preventDefault();duplicateSel();}
+    else if(e.key==="a"){e.preventDefault();selection=objects.map(o=>o.id);syncProps();render();}return;}
+  if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();deleteSel();}
+  else if(e.key==="Enter"&&penSegs)finishPen(false);
+  else if(e.key==="Escape"){if(penSegs)finishPen(false);else{selection=[];syncProps();render();}}
+  else if(e.key==="v")setTool("select");else if(e.key==="a")setTool("direct");
+  else if(e.key==="u")setTool("curve");
+  else if(e.key==="p")setTool("pen");else if(e.key==="m")setTool("rect");
+  else if(e.key==="l")setTool("ellipse");else if(e.key==="t")setTool("text");else if(e.key==="i")setTool("image");else if(e.key==="\\")setTool("line");
+  else if(e.key==="ArrowUp")nudge(0,e.shiftKey?-5:-1);else if(e.key==="ArrowDown")nudge(0,e.shiftKey?5:1);
+  else if(e.key==="ArrowLeft")nudge(e.shiftKey?-5:-1,0);else if(e.key==="ArrowRight")nudge(e.shiftKey?5:1,0);});
+window.addEventListener("keyup",e=>{if(e.code==="Space"){spaceHeld=false;if(tool!=="hand")stage.classList.remove("pan");}});
+function nudge(dx,dy){if(!selection.length)return;
+  objects.filter(o=>selection.includes(o.id)).forEach(o=>translateAttrs(o,JSON.parse(JSON.stringify(o.attrs)),dx,dy));
+  render();syncProps();snapshot();}
+
+// =============== EXPORT ===============
+function buildPrintSVG(){const bx=DOC.bleed||0,W=DOC.w+bx*2,H=DOC.h+bx*2;
+  const s=el("svg",{xmlns:SVGNS,width:W+"mm",height:H+"mm",viewBox:`0 0 ${W} ${H}`});
+  const defs=el("defs");objects.forEach(o=>["fill","stroke"].forEach(k=>{const c=o[k];
+    if(c&&c!=="none"&&c.grad){const g2=JSON.parse(JSON.stringify(c.grad));c.grad.id=g2.id;
+      // rebuild against translated coords handled by translate group; use bbox in shifted space
+    }}));
+  s.append(el("rect",{x:0,y:0,width:W,height:H,fill:"#ffffff"}));
+  const g=el("g",{transform:`translate(${bx},${bx})`});
+  // grad defs referencing object bbox (already in artboard coords, group translate handles offset)
+  const defs2=el("defs");
+  objects.forEach(o=>["fill","stroke"].forEach(k=>{const c=o[k];
+    if(c&&c!=="none"&&c.grad){const b=bboxRaw(o);let gr;
+      if(c.grad.type==="linear"){const a=(c.grad.angle||0)*Math.PI/180,cx=b.x+b.w/2,cy=b.y+b.h/2,rr=Math.max(b.w,b.h)/2;
+        gr=el("linearGradient",{id:c.grad.id,gradientUnits:"userSpaceOnUse",x1:cx-Math.cos(a)*rr,y1:cy-Math.sin(a)*rr,x2:cx+Math.cos(a)*rr,y2:cy+Math.sin(a)*rr});}
+      else gr=el("radialGradient",{id:c.grad.id,gradientUnits:"userSpaceOnUse",cx:b.x+b.w/2,cy:b.y+b.h/2,r:Math.max(b.w,b.h)/2});
+      c.grad.stops.forEach(st=>gr.append(el("stop",{offset:st.off,"stop-color":st.color.hex})));
+      defs2.append(gr);}}));
+  s.append(defs2);
+  objects.forEach(o=>{if(o.visible!==false){const e=buildEl(o);
+    if(o.fill&&o.fill!=="none"&&o.fill.cmyk)e.setAttribute("data-cmyk-fill",o.fill.cmyk.join(","));g.append(e);}});
+  s.append(g);
+  if(bx>0){const m=el("g",{stroke:"#000","stroke-width":.2}),t=3;
+    [[bx,bx],[bx+DOC.w,bx],[bx,bx+DOC.h],[bx+DOC.w,bx+DOC.h]].forEach(([x,y],i)=>{const sx=i%2?1:-1,sy=i<2?-1:1;
+      m.append(el("line",{x1:x,y1:y+sy*1,x2:x,y2:y+sy*(1+t)}));m.append(el("line",{x1:x+sx*1,y1:y,x2:x+sx*(1+t),y2:y}));});
+    s.append(m);}
+  return{svg:s};}
+function exportSVG(){const{svg:s}=buildPrintSVG();
+  const str='<?xml version="1.0" encoding="UTF-8"?>\n'+new XMLSerializer().serializeToString(s);
+  dl("bao-bi.svg","data:image/svg+xml;charset=utf-8,"+encodeURIComponent(str));}
+
+// PDF (vector, CMYK, gradient via axial/radial shading)
+function exportPDF(asAi){
+  const bx=DOC.bleed||0,W=DOC.w+bx*2,H=DOC.h+bx*2,PT=72/25.4,wpt=W*PT,hpt=H*PT;
+  const X=x=>((x+bx)*PT).toFixed(3),Y=y=>((H-(y+bx))*PT).toFixed(3);
+  const extObjs=[]; // extra pdf objects (shadings) beyond fixed 4
+  let shadingRes="";
+  function cmykStr(col){const cm=col.cmyk||rgbToCmyk(...hexToRgb(col.hex));
+    return`${(cm[0]/100).toFixed(3)} ${(cm[1]/100).toFixed(3)} ${(cm[2]/100).toFixed(3)} ${(cm[3]/100).toFixed(3)}`;}
+  // Build a stitching function for multi-stop gradient (DeviceCMYK)
+  function shadingFor(o,g){const b=bboxRaw(o);
+    const stops=g.stops.slice().sort((a,b2)=>a.off-b2.off);
+    // functions between consecutive stops
+    const fns=[],bounds=[],encode=[];
+    for(let i=0;i<stops.length-1;i++){const c0=stops[i].color.cmyk||rgbToCmyk(...hexToRgb(stops[i].color.hex));
+      const c1=stops[i+1].color.cmyk||rgbToCmyk(...hexToRgb(stops[i+1].color.hex));
+      fns.push(`<< /FunctionType 2 /Domain [0 1] /C0 [${c0.map(v=>(v/100).toFixed(3)).join(" ")}] /C1 [${c1.map(v=>(v/100).toFixed(3)).join(" ")}] /N 1 >>`);
+      if(i>0)bounds.push(stops[i].off.toFixed(3));encode.push("0 1");}
+    let fn;
+    if(fns.length===1)fn=fns[0];
+    else fn=`<< /FunctionType 3 /Domain [0 1] /Functions [${fns.join(" ")}] /Bounds [${bounds.join(" ")}] /Encode [${encode.join(" ")}] >>`;
+    let coords,type;
+    if(g.type==="linear"){const a=(g.angle||0)*Math.PI/180,cx=b.x+b.w/2,cy=b.y+b.h/2,rr=Math.max(b.w,b.h)/2;
+      const x1=cx-Math.cos(a)*rr,y1=cy-Math.sin(a)*rr,x2=cx+Math.cos(a)*rr,y2=cy+Math.sin(a)*rr;
+      coords=`${X(x1)} ${Y(y1)} ${X(x2)} ${Y(y2)}`;type=2;}
+    else{const cx=b.x+b.w/2,cy=b.y+b.h/2,rr=Math.max(b.w,b.h)/2;
+      coords=`${X(cx)} ${Y(cy)} 0 ${X(cx)} ${Y(cy)} ${(rr*PT).toFixed(3)}`;type=3;}
+    return`<< /ShadingType ${type} /ColorSpace /DeviceCMYK /Coords [${coords}] /Function ${fn} /Extend [true true] >>`;
+  }
+  let content="0 0 0 0 k\n0 0 "+wpt.toFixed(2)+" "+hpt.toFixed(2)+" re f\n";
+  let shN=0;const shadings=[];
+  objects.forEach(o=>{if(o.visible===false)return;
+    const f=o.fill,s=o.stroke,hasF=f&&f!=="none",hasS=s&&s!=="none";
+    content+="q\n";
+    // path first
+    let pathStr="";pdfPath(o,t=>pathStr+=t,X,Y,PT);
+    if(hasF&&f.grad){ // clip to path then paint shading
+      const name="Sh"+(shN++);shadings.push({name,def:shadingFor(o,f.grad)});
+      content+=pathStr+"W n\n/"+name+" sh\n";
+      if(hasS){content+=cmykStr(s)+" K\n"+((o.strokeWidth||0)*PT).toFixed(3)+" w\n"+pathStr+"S\n";}
+    } else {
+      if(hasF)content+=cmykStr(f)+" k\n";
+      if(hasS){content+=cmykStr(s)+" K\n"+((o.strokeWidth||0)*PT).toFixed(3)+" w\n";}
+      content+=pathStr;const op=hasF&&hasS?"B":hasF?"f":hasS?"S":"n";content+=op+"\n";
+    }
+    content+="Q\n";});
+  // resources: shading dict
+  let shDict=shadings.map((s,i)=>`/${s.name} ${5+i} 0 R`).join(" ");
+  const objs=[];
+  objs.push("<< /Type /Catalog /Pages 2 0 R >>");
+  objs.push("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wpt.toFixed(2)} ${hpt.toFixed(2)}] /TrimBox [${(bx*PT).toFixed(2)} ${(bx*PT).toFixed(2)} ${((bx+DOC.w)*PT).toFixed(2)} ${((bx+DOC.h)*PT).toFixed(2)}] /Contents 4 0 R /Resources << /Shading << ${shDict} >> >> >>`);
+  objs.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  shadings.forEach(s=>objs.push(s.def));
+  let pdf="%PDF-1.5\n%\xff\xff\xff\xff\n";const offs=[];
+  objs.forEach((o,i)=>{offs.push(pdf.length);pdf+=`${i+1} 0 obj\n${o}\nendobj\n`;});
+  const xref=pdf.length;pdf+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`;
+  offs.forEach(o=>pdf+=String(o).padStart(10,"0")+" 00000 n \n");
+  pdf+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  const blob=new Blob([pdf],{type:"application/pdf"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.download=asAi?"bao-bi.ai":"bao-bi.pdf";a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+function pdfPath(o,emit,X,Y,PT){const a=o.attrs;
+  if(o.type==="rect"||o.type==="image")emit(`${X(+a.x)} ${Y(+a.y+ +a.height)} ${(+a.width*PT).toFixed(3)} ${(+a.height*PT).toFixed(3)} re\n`);
+  else if(o.type==="line")emit(`${X(+a.x1)} ${Y(+a.y1)} m ${X(+a.x2)} ${Y(+a.y2)} l\n`);
+  else if(o.type==="ellipse"){const k=.5523,cx=+a.cx,cy=+a.cy,rx=+a.rx,ry=+a.ry;
+    emit(`${X(cx+rx)} ${Y(cy)} m\n`);
+    emit(`${X(cx+rx)} ${Y(cy-ry*k)} ${X(cx+rx*k)} ${Y(cy-ry)} ${X(cx)} ${Y(cy-ry)} c\n`);
+    emit(`${X(cx-rx*k)} ${Y(cy-ry)} ${X(cx-rx)} ${Y(cy-ry*k)} ${X(cx-rx)} ${Y(cy)} c\n`);
+    emit(`${X(cx-rx)} ${Y(cy+ry*k)} ${X(cx-rx*k)} ${Y(cy+ry)} ${X(cx)} ${Y(cy+ry)} c\n`);
+    emit(`${X(cx+rx*k)} ${Y(cy+ry)} ${X(cx+rx)} ${Y(cy+ry*k)} ${X(cx+rx)} ${Y(cy)} c\nh\n`);}
+  else if(o.type==="text")emit(`BT /F1 ${((a.size||6)*PT).toFixed(2)} Tf ${X(+a.x)} ${Y(+a.y)} Td (${(a.text||"").replace(/[()\\]/g,"\\$&")}) Tj ET\n`);
+  else{const segs=parsePath(a.d);segs.forEach((s,i)=>{
+    if(i===0)emit(`${X(s.p.x)} ${Y(s.p.y)} m\n`);
+    else if(s.c1&&s.c2)emit(`${X(s.c1.x)} ${Y(s.c1.y)} ${X(s.c2.x)} ${Y(s.c2.y)} ${X(s.p.x)} ${Y(s.p.y)} c\n`);
+    else emit(`${X(s.p.x)} ${Y(s.p.y)} l\n`);});if(segs.closed)emit("h\n");}}
+function dl(name,href){const a=document.createElement("a");a.download=name;a.href=href;a.click();}
+
+// =============== TABS ===============
+$("#tabDesign").onclick=()=>switchTab("design");
+$("#tabTemplate").onclick=()=>switchTab("template");
+function switchTab(t){const d=t==="design";
+  $("#tabDesign").classList.toggle("on",d);$("#tabTemplate").classList.toggle("on",!d);
+  $("#viewDesign").classList.toggle("on",d);$("#viewTemplate").classList.toggle("on",!d);}
+
+// =============== BACKGROUND IMAGE ===============
+$("#tglBg").onclick=()=>{if(!bg.href){switchTab("template");return;}
+  bg.visible=!bg.visible;$("#tglBg").classList.toggle("on",bg.visible);$("#bgShow").classList.toggle("on",bg.visible);render();};
+$("#bgDrop").onclick=()=>$("#bgFile").click();
+$("#bgFile").onchange=e=>{if(e.target.files[0])loadBgFile(e.target.files[0]);};
+$("#bgDrop").addEventListener("dragover",e=>{e.preventDefault();$("#bgDrop").classList.add("hot");});
+$("#bgDrop").addEventListener("dragleave",()=>$("#bgDrop").classList.remove("hot"));
+$("#bgDrop").addEventListener("drop",e=>{e.preventDefault();$("#bgDrop").classList.remove("hot");
+  const f=[...e.dataTransfer.files].find(f=>f.type.startsWith("image/"));if(f)loadBgFile(f);});
+function loadBgFile(file){const rd=new FileReader();rd.onload=()=>{bg.href=rd.result;
+  const img=new Image();img.onload=()=>{
+    // fit to artboard keeping ratio
+    const ar=img.width/img.height,dr=DOC.w/DOC.h;
+    if(ar>dr){bg.w=DOC.w;bg.h=DOC.w/ar;}else{bg.h=DOC.h;bg.w=DOC.h*ar;}
+    bg.x=(DOC.w-bg.w)/2;bg.y=(DOC.h-bg.h)/2;bg.visible=true;bg.locked=true;
+    $("#bgControls").style.display="block";$("#tglBg").classList.add("on");render();};
+  img.src=rd.result;};rd.readAsDataURL(file);}
+$("#bgShow").onclick=()=>{bg.visible=!bg.visible;$("#bgShow").classList.toggle("on",bg.visible);$("#tglBg").classList.toggle("on",bg.visible);render();};
+$("#bgLock").onclick=()=>{bg.locked=!bg.locked;$("#bgLock").classList.toggle("on",bg.locked);
+  $("#bgLock").textContent=bg.locked?"Khóa":"Mở khóa";};
+$("#bgOpacity").oninput=e=>{bg.opacity=+e.target.value/100;render();};
+$("#bgFit").onclick=()=>{bg.x=0;bg.y=0;bg.w=DOC.w;bg.h=DOC.h;render();};
+$("#bgRemove").onclick=()=>{bg.href=null;$("#bgControls").style.display="none";$("#tglBg").classList.remove("on");render();};
+
+// =============== FIELDS ===============
+function renderFields(){const wrap=$("#fieldList");wrap.innerHTML="";
+  $("#fieldEmpty").style.display=fields.length?"none":"block";
+  fields.forEach((f,i)=>{const d=document.createElement("div");d.className="field-item";
+    d.innerHTML=`<div class="fh"><span class="fk">${f.key}</span><span class="fx" title="Xóa trường">✕</span></div>`;
+    const inp=document.createElement("input");inp.className="inp";inp.value=f.value;inp.placeholder="Giá trị…";
+    inp.oninput=()=>{f.value=inp.value;render();};
+    const btn=document.createElement("button");btn.className="tbtn";btn.style.cssText="width:100%;margin-top:6px;height:22px";
+    btn.textContent="＋ Đặt lên bản vẽ";btn.onclick=()=>placeField(f);
+    d.querySelector(".fx").onclick=()=>{fields.splice(i,1);
+      objects.filter(o=>o.field===f.key).forEach(o=>delete o.field);renderFields();render();};
+    d.append(inp,btn);wrap.append(d);});}
+$("#addField").onclick=()=>{const key=prompt("Tên trường (VD: Tên SP, Khối lượng, Mã vạch):");if(!key)return;
+  if(fields.some(f=>f.key===key)){alert("Trường này đã tồn tại.");return;}
+  const val=prompt("Giá trị mặc định:","")||"";fields.push({key,value:val});renderFields();};
+function placeField(f){const cx=DOC.w/2,cy=DOC.h/2;
+  const o={...defStyle(),type:"text",stroke:"none",field:f.key,
+    attrs:{x:r2(cx-15),y:r2(cy),text:f.value||f.key,size:6,font:"Arial",weight:"bold"}};
+  addObject(o);selectOnly(o.id);snapshot();switchTab("design");setTool("select");}
+
+// =============== IMAGE FRAME FILL ===============
+$("#fillImage").onclick=()=>{const o=selection.length===1?objects.find(x=>x.id===selection[0]):null;
+  if(!o||o.type!=="image"){alert("Hãy chọn một khung ảnh (vẽ bằng công cụ Vùng ảnh) trước.");return;}
+  $("#imgFile").click();};
+$("#imgFile").onchange=e=>{const file=e.target.files[0];if(!file)return;
+  const o=objects.find(x=>x.id===selection[0]);const rd=new FileReader();
+  rd.onload=()=>{o.attrs.href=rd.result;snapshot();render();};rd.readAsDataURL(file);e.target.value="";};
+
+// =============== REMOVE.BG ===============
+$("#saveKey").onclick=async()=>{removebgKey=$("#rbgKey").value.trim();
+  if(!db)await openDB();db.transaction("settings","readwrite").objectStore("settings").put({k:"rbgKey",v:removebgKey});
+  $("#keyState").textContent=removebgKey?"✓ Đã lưu":"Đã xóa key";};
+async function loadKey(){if(!db)await openDB();
+  const rq=db.transaction("settings","readonly").objectStore("settings").get("rbgKey");
+  rq.onsuccess=()=>{if(rq.result&&rq.result.v){removebgKey=rq.result.v;$("#rbgKey").value=removebgKey;$("#keyState").textContent="✓ Đã lưu";}};}
+function dataURLtoBlob(u){const[h,b]=u.split(",");const mime=h.match(/:(.*?);/)[1];
+  const bin=atob(b),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});}
+$("#removeBg").onclick=async()=>{
+  const o=selection.length===1?objects.find(x=>x.id===selection[0]):null;
+  if(!o||o.type!=="image"||!o.attrs.href){alert("Hãy chọn một khung ảnh đã có ảnh (không phải khung trống).");return;}
+  if(!removebgKey){alert("Chưa có API key. Dán key remove.bg và bấm Lưu key.");return;}
+  const st=$("#rbgStatus");st.textContent="⏳ Đang tách nền…";st.style.color="var(--muted)";
+  try{
+    const fd=new FormData();
+    fd.append("image_file",dataURLtoBlob(o.attrs.href),"image.png");
+    fd.append("size","auto");
+    const res=await fetch("https://api.remove.bg/v1.0/removebg",{method:"POST",
+      headers:{"X-Api-Key":removebgKey},body:fd});
+    if(!res.ok){let msg="Lỗi "+res.status;
+      try{const j=await res.json();if(j.errors&&j.errors[0])msg=j.errors[0].title||msg;}catch(e){}
+      if(res.status===403)msg="Key sai hoặc hết quota (403)";
+      st.textContent="✕ "+msg;st.style.color="#f88";return;}
+    const blob=await res.blob();const rd=new FileReader();
+    rd.onload=()=>{o.attrs.href=rd.result;snapshot();render();
+      st.textContent="✓ Đã tách nền xong";st.style.color="#8f8";};
+    rd.readAsDataURL(blob);
+  }catch(err){st.textContent="✕ Không gọi được API (có thể do CORS). "+err.message;st.style.color="#f88";}
+};
+
+// =============== TEMPLATE STORE (IndexedDB) ===============
+let db=null;
+function openDB(){return new Promise((res,rej)=>{const rq=indexedDB.open("vectorStudioTemplates",2);
+  rq.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains("tpl"))d.createObjectStore("tpl",{keyPath:"id"});
+    if(!d.objectStoreNames.contains("settings"))d.createObjectStore("settings",{keyPath:"k"});};
+  rq.onsuccess=e=>{db=e.target.result;res(db);};rq.onerror=e=>rej(e);});}
+function tplStore(mode){return db.transaction("tpl",mode).objectStore("tpl");}
+function captureTemplate(name){return{id:"t"+Date.now(),name,updated:Date.now(),
+  DOC:JSON.parse(JSON.stringify(DOC)),objects:JSON.parse(JSON.stringify(objects)),
+  fields:JSON.parse(JSON.stringify(fields)),bg:JSON.parse(JSON.stringify(bg)),idSeq,gradSeq,
+  thumb:makeThumb()};}
+function makeThumb(){try{const bx=0,W=DOC.w,H=DOC.h;
+  const s=el("svg",{xmlns:SVGNS,width:88,height:88,viewBox:`0 0 ${W} ${H}`});
+  s.append(el("rect",{x:0,y:0,width:W,height:H,fill:"#fff"}));
+  ensureGradDefs();const df=gDefs.cloneNode(true);s.append(df);
+  objects.forEach(o=>{if(o.visible!==false)s.append(buildEl(o));});
+  return"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(new XMLSerializer().serializeToString(s));
+}catch(e){return"";}}
+$("#saveTpl").onclick=async()=>{const name=($("#tplName").value||"").trim()||("Template "+new Date().toLocaleDateString("vi"));
+  if(!db)await openDB();const rec=captureTemplate(name);
+  const rq=tplStore("readwrite").put(rec);rq.onsuccess=()=>{$("#tplName").value="";loadTplList();};
+  rq.onerror=()=>alert("Không lưu được template.");};
+async function loadTplList(){if(!db)await openDB();const list=[],rq=tplStore("readonly").openCursor();
+  rq.onsuccess=e=>{const c=e.target.result;if(c){list.push(c.value);c.continue();}else renderTplList(list.sort((a,b)=>b.updated-a.updated));};}
+function renderTplList(list){const wrap=$("#tplList");wrap.innerHTML="";
+  $("#tplEmpty").style.display=list.length?"none":"block";
+  list.forEach(t=>{const card=document.createElement("div");card.className="tpl-card";
+    card.innerHTML=`<div class="tp-thumb" style="background-image:url('${t.thumb}')"></div>
+      <div class="tp-info"><div class="tp-name">${t.name}</div>
+      <div class="tp-meta">${t.objects.length} đối tượng · ${new Date(t.updated).toLocaleDateString("vi")}</div></div>
+      <span class="tp-del" title="Xóa">🗑</span>`;
+    card.querySelector(".tp-info").onclick=()=>applyTemplate(t);
+    card.querySelector(".tp-thumb").onclick=()=>applyTemplate(t);
+    card.querySelector(".tp-del").onclick=e=>{e.stopPropagation();
+      if(confirm(`Xóa template "${t.name}"?`)){tplStore("readwrite").delete(t.id).onsuccess=loadTplList;}};
+    wrap.append(card);});}
+function applyTemplate(t){if(objects.length&&!confirm(`Nạp template "${t.name}"? Bản vẽ hiện tại sẽ được thay.`))return;
+  Object.assign(DOC,JSON.parse(JSON.stringify(t.DOC)));
+  objects=JSON.parse(JSON.stringify(t.objects));fields=JSON.parse(JSON.stringify(t.fields||[]));
+  bg=JSON.parse(JSON.stringify(t.bg||{href:null,x:0,y:0,w:0,h:0,opacity:.6,visible:true,locked:true}));
+  idSeq=t.idSeq||objects.reduce((m,o)=>Math.max(m,o.id),0)+1;gradSeq=t.gradSeq||1;
+  selection=[];$("#bgControls").style.display=bg.href?"block":"none";
+  $("#tglBg").classList.toggle("on",!!bg.href&&bg.visible);
+  if(bg.href)$("#bgOpacity").value=Math.round(bg.opacity*100);
+  syncDocInputs();renderFields();snapshot();render();fitView();switchTab("design");}
+
+// init
+$("#preset").value="90,54";
+loadColor(style.fill);
+renderFields();
+openDB().then(()=>{loadTplList();loadKey();}).catch(()=>{$("#tplEmpty").textContent="Trình duyệt không hỗ trợ lưu template ở đây.";});
+snapshot();render();fitView();updateSwatch();syncProps();
+</script>
+</body>
+</html>
