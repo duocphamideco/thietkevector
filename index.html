@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vector Studio Pro · Bao bì / In ấn</title>
+<title>Vector Studio Pro · PDF / AI / CSV · Bao bì / In ấn</title>
 <style>
   :root{
     --bg:#1e1e1e; --panel:#2b2b2b; --panel2:#252525; --border:#3a3a3a;
@@ -168,6 +168,16 @@
     cursor:pointer; font-size:11px; font-weight:600; border-bottom:2px solid transparent}
   .tab-bar button.on{color:#fff; border-bottom-color:var(--accent)}
   .tabview{display:none} .tabview.on{display:block}
+
+  /* ---- Import PDF / AI / CSV ---- */
+  .import-state{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:10.5px}
+  .import-state.ok{color:#8ee59a}.import-state.err{color:#ff9696}.import-state.busy{color:#a9d2ff}
+  .import-overlay{position:absolute;inset:0;z-index:80;background:rgba(20,24,30,.68);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;pointer-events:none}
+  .import-overlay.on{display:flex}.import-card{width:min(430px,82%);background:#222b35;border:1px solid #4a6178;border-radius:10px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .import-title{font-weight:700;font-size:14px;color:#fff;margin-bottom:7px}.import-msg{color:#b7c5d4;line-height:1.55}
+  .import-bar{height:4px;background:#34414e;border-radius:5px;overflow:hidden;margin-top:12px}.import-bar::after{content:'';display:block;width:38%;height:100%;background:var(--accent);animation:importMove 1.15s ease-in-out infinite}
+  @keyframes importMove{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}
+  .stage.import-hot{outline:3px solid var(--accent);outline-offset:-3px}.stage.import-hot::after{content:'Thả PDF / AI / CSV để chèn vào Artboard';position:absolute;left:50%;top:18px;transform:translateX(-50%);z-index:70;background:#1677d8;color:#fff;padding:8px 14px;border-radius:6px;font-weight:700;box-shadow:0 5px 18px rgba(0,0,0,.35)}
 </style>
 </head>
 <body>
@@ -178,6 +188,8 @@
     <div class="sep"></div>
     <div class="group">
       <button class="tbtn" id="newDoc">Mới</button>
+      <button class="tbtn on" id="importFile">＋ Chèn PDF / AI / CSV</button>
+      <input type="file" id="importFileInput" accept=".pdf,.ai,.csv,application/pdf,text/csv" hidden>
       <button class="tbtn" id="exportSvg">SVG</button>
       <button class="tbtn" id="exportPdf">PDF in</button>
       <button class="tbtn" id="exportAi">File .ai</button>
@@ -199,6 +211,7 @@
       <button class="tbtn" id="tglBg">Ảnh nền</button>
     </div>
     <div style="margin-left:auto; display:flex; gap:6px; align-items:center">
+      <span class="import-state" id="importState" title="Trạng thái nhập file"></span>
       <button class="tbtn" id="zoomOut">−</button>
       <span class="zoomlbl" id="zoomLbl">100%</span>
       <button class="tbtn" id="zoomIn">+</button>
@@ -240,7 +253,16 @@
     </div>
   </div>
 
-  <div class="stage" id="stage"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="stage" id="stage">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="import-overlay" id="importOverlay">
+      <div class="import-card">
+        <div class="import-title" id="importTitle">Đang nhập file…</div>
+        <div class="import-msg" id="importMsg">Đang phân tích dữ liệu vector để đưa vào Artboard.</div>
+        <div class="import-bar"></div>
+      </div>
+    </div>
+  </div>
 
   <div class="side">
     <div class="tab-bar">
@@ -1130,6 +1152,174 @@ function nudge(dx,dy){if(!selection.length)return;
   objects.filter(o=>selection.includes(o.id)).forEach(o=>translateAttrs(o,JSON.parse(JSON.stringify(o.attrs)),dx,dy));
   render();syncProps();snapshot();}
 
+// =============== IMPORT PDF / AI / CSV ===============
+const PDFJS_CDN="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+let pdfJsPromise=null;
+function setImportState(text,kind=""){
+  const n=$("#importState");n.textContent=text||"";n.className="import-state"+(kind?" "+kind:"");n.title=text||"Trạng thái nhập file";
+}
+function showImportBusy(title,msg){$("#importTitle").textContent=title||"Đang nhập file…";$("#importMsg").textContent=msg||"";$("#importOverlay").classList.add("on");setImportState(title||"Đang nhập…","busy");}
+function hideImportBusy(){$("#importOverlay").classList.remove("on");}
+function ensurePdfJs(){
+  if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;return Promise.resolve(pdfjsLib);}
+  if(pdfJsPromise)return pdfJsPromise;
+  pdfJsPromise=new Promise((resolve,reject)=>{const sc=document.createElement("script");sc.src=PDFJS_CDN;sc.async=true;
+    sc.onload=()=>{if(!window.pdfjsLib){reject(new Error("Không nạp được PDF.js"));return;}pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;resolve(pdfjsLib);};
+    sc.onerror=()=>reject(new Error("Không tải được bộ đọc PDF.js. Kiểm tra kết nối Internet."));document.head.append(sc);});
+  return pdfJsPromise;
+}
+function arrayBufferStartsWith(buf,txt){const a=new Uint8Array(buf,0,Math.min(buf.byteLength,1024));let head="";
+  for(let i=0;i<a.length;i++)head+=String.fromCharCode(a[i]);return head.includes(txt);}
+function matrixMul(m1,m2){return[
+  m1[0]*m2[0]+m1[2]*m2[1],m1[1]*m2[0]+m1[3]*m2[1],
+  m1[0]*m2[2]+m1[2]*m2[3],m1[1]*m2[2]+m1[3]*m2[3],
+  m1[0]*m2[4]+m1[2]*m2[5]+m1[4],m1[1]*m2[4]+m1[3]*m2[5]+m1[5]];}
+function matrixPoint(m,x,y){return{x:m[0]*x+m[2]*y+m[4],y:m[1]*x+m[3]*y+m[5]};}
+function rgbPaint01(r,g,b){let vv=[r,g,b].map(v=>+v||0);if(Math.max(...vv)>1.001)vv=vv.map(v=>v/255);
+  [r,g,b]=vv.map(v=>Math.max(0,Math.min(1,v)));
+  const hex=rgbToHex(Math.round(r*255),Math.round(g*255),Math.round(b*255));return{mode:"rgb",hex,cmyk:rgbToCmyk(...hexToRgb(hex))};}
+function cmykPaint01(c,m,y,k){return{mode:"cmyk",cmyk:[c,m,y,k].map(v=>Math.max(0,Math.min(100,(+v||0)*100))),hex:cmykToHex(c*100,m*100,y*100,k*100)};}
+function grayPaint01(v){v=+v||0;if(v>1.001)v/=255;v=Math.max(0,Math.min(1,v));return rgbPaint01(v,v,v);}
+function clonePdfState(st){return{ctm:st.ctm.slice(),fill:clonePaint(st.fill),stroke:clonePaint(st.stroke),lineWidth:st.lineWidth,fillAlpha:st.fillAlpha,strokeAlpha:st.strokeAlpha};}
+function pdfPtToMm(v){return v*25.4/72;}
+function bytesToB64(bytes){let bin="";const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode(...bytes.subarray(i,i+CH));return btoa(bin);}
+function b64ToBytes(b64){const bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+function studioMetaPayload(){const data={app:"VectorStudioPro",version:1,DOC:JSON.parse(JSON.stringify(DOC)),objects:JSON.parse(JSON.stringify(objects)),fields:JSON.parse(JSON.stringify(fields)),idSeq,gradSeq};
+  return bytesToB64(new TextEncoder().encode(JSON.stringify(data)));}
+function studioMetaComments(){const b64=studioMetaPayload(),chunks=b64.match(/.{1,180}/g)||[];
+  return "%VSPRO1-BEGIN\n"+chunks.map(c=>"%VSPRO1:"+c+"\n").join("")+"%VSPRO1-END\n";}
+function extractStudioMeta(buf){try{const txt=new TextDecoder("latin1").decode(new Uint8Array(buf));
+    const a=txt.indexOf("%VSPRO1-BEGIN"),b=txt.indexOf("%VSPRO1-END",a+1);if(a<0||b<0)return null;
+    const chunks=[];for(const line of txt.slice(a,b).split(/\r?\n/))if(line.startsWith("%VSPRO1:"))chunks.push(line.slice(8).trim());
+    if(!chunks.length)return null;const json=new TextDecoder().decode(b64ToBytes(chunks.join(""))),meta=JSON.parse(json);
+    return meta&&meta.app==="VectorStudioPro"&&meta.DOC&&Array.isArray(meta.objects)?meta:null;
+  }catch(e){console.warn("Không đọc được metadata Vector Studio:",e);return null;}}
+function refreshImportedGradientIds(o){["fill","stroke"].forEach(k=>{const p=o[k];if(p&&p!=="none"&&p.grad)p.grad.id="grad"+(gradSeq++);});}
+function importStudioMeta(meta,fileName){const srcDOC=JSON.parse(JSON.stringify(meta.DOC)),srcObjs=JSON.parse(JSON.stringify(meta.objects||[]));
+  if(!srcObjs.length)throw new Error("File Vector Studio không có đối tượng thiết kế để khôi phục.");
+  if(!objects.length){Object.assign(DOC,srcDOC);objects=srcObjs;fields=JSON.parse(JSON.stringify(meta.fields||[]));
+    idSeq=Math.max(+meta.idSeq||1,...objects.map(o=>(+o.id||0)+1));gradSeq=Math.max(+meta.gradSeq||1,1);selection=objects.map(o=>o.id);
+    syncDocInputs();renderFields();snapshot();render();fitView();syncProps();setTool("select");return{count:objects.length,exact:true};}
+  const useFileSize=confirm(`File này có dữ liệu gốc của Vector Studio (${srcDOC.w} × ${srcDOC.h} mm).\n\nOK: đổi Artboard theo file và chèn đúng kích thước.\nCancel: thu/phóng toàn bộ để vừa Artboard hiện tại.`);
+  let sc=1,ox=0,oy=0;if(useFileSize){DOC.w=+srcDOC.w||DOC.w;DOC.h=+srcDOC.h||DOC.h;DOC.die=srcDOC.die||null;syncDocInputs();}
+  else{sc=Math.min(DOC.w/(+srcDOC.w||DOC.w),DOC.h/(+srcDOC.h||DOC.h))*.94;ox=(DOC.w-(+srcDOC.w||DOC.w)*sc)/2;oy=(DOC.h-(+srcDOC.h||DOC.h)*sc)/2;}
+  const added=[];for(const raw of srcObjs){const o=JSON.parse(JSON.stringify(raw));delete o.id;delete o.field;refreshImportedGradientIds(o);addObject(o);
+    if(sc!==1||ox||oy){const bb=bboxRaw(o);scaleObjTo(o,bb,{x:ox+bb.x*sc,y:oy+bb.y*sc,w:Math.max(.01,bb.w*sc),h:Math.max(.01,bb.h*sc)});if(o.strokeWidth)o.strokeWidth*=sc;}
+    added.push(o.id);}selection=added;snapshot();render();fitView();syncProps();setTool("select");return{count:added.length,exact:true};}
+
+function pdfViewportPoint(viewport,p){const q=viewport.convertToViewportPoint(p.x,p.y);return{x:pdfPtToMm(q[0]),y:pdfPtToMm(q[1])};}
+function parseCsvText(text){
+  text=(text||"").replace(/^\uFEFF/,"");const first=(text.split(/\r?\n/).find(x=>x.trim())||"");
+  const count=(ch)=>(first.match(new RegExp(ch==="\t"?"\\t":"\\"+ch,"g"))||[]).length;
+  const delim=[[",",count(",")],[";",count(";")],["\t",count("\t")]].sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=[];let row=[],cell="",q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(ch==='"')q=false;else cell+=ch;continue;}
+    if(ch==='"'){q=true;continue;}if(ch===delim){row.push(cell);cell="";continue;}
+    if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell="";if(row.some(v=>v!==""))rows.push(row);row=[];continue;}cell+=ch;
+  }
+  row.push(cell);if(row.some(v=>v!==""))rows.push(row);return rows;
+}
+function importCsvRows(rows,fileName){
+  if(!rows.length)throw new Error("CSV không có dữ liệu.");const maxRows=200,maxCols=20;let clipped=false;
+  if(rows.length>maxRows){rows=rows.slice(0,maxRows);clipped=true;}const cols=Math.min(maxCols,Math.max(...rows.map(r=>r.length)));if(Math.max(...rows.map(r=>r.length))>maxCols)clipped=true;
+  rows=rows.map(r=>Array.from({length:cols},(_,i)=>(r[i]??"").trim()));
+  const colW=Array.from({length:cols},(_,c)=>{let n=0;rows.forEach(r=>n=Math.max(n,(r[c]||"").length));return Math.max(22,Math.min(60,10+n*1.7));});
+  const rowH=8,pad=5,tableW=colW.reduce((a,b)=>a+b,0),tableH=rows.length*rowH;
+  const x0=objects.length?Math.max(2,(DOC.w-tableW)/2):pad,y0=objects.length?Math.max(2,(DOC.h-tableH)/2):pad;
+  if(!objects.length){DOC.w=Math.max(90,tableW+pad*2);DOC.h=Math.max(54,tableH+pad*2);DOC.die=null;syncDocInputs();}
+  const added=[];let y=y0;
+  rows.forEach((r,ri)=>{let x=x0;r.forEach((val,ci)=>{const w=colW[ci];
+    const rect={...defStyle(),type:"rect",name:`CSV ${ri+1}:${ci+1}`,fill:ri===0?rgbPaint01(.93,.95,.98):"none",stroke:rgbPaint01(.72,.72,.72),strokeWidth:.25,fillOpacity:1,attrs:{x:r2(x),y:r2(y),width:r2(w),height:rowH}};
+    addObject(rect);added.push(rect.id);
+    if(val){const t={...defStyle(),type:"text",name:`CSV ${ri+1}:${ci+1} ${val.slice(0,24)}`,fill:rgbPaint01(.08,.08,.08),stroke:"none",strokeWidth:0,fillOpacity:1,
+      attrs:{x:r2(x+2),y:r2(y+5.4),text:val,size:ri===0?3.5:3.2,font:"Arial",weight:ri===0?"bold":"normal"}};addObject(t);added.push(t.id);}
+    x+=w;});y+=rowH;});
+  selection=added;snapshot();render();fitView();syncProps();setTool("select");
+  return{count:added.length,note:clipped?" · giới hạn hiển thị 200 dòng × 20 cột":""};
+}
+function importPdfPathObject(path,st,paintMode,viewport,name){
+  if(!path.length)return null;let d="",last=null,sub=null;
+  const pt=(p)=>pdfViewportPoint(viewport,matrixPoint(st.ctm,p.x,p.y));
+  for(const seg of path){
+    if(seg.k==="M"){const p=pt(seg.p);d+=`M ${r2(p.x)} ${r2(p.y)} `;last=seg.p;sub=seg.p;}
+    else if(seg.k==="L"){const p=pt(seg.p);d+=`L ${r2(p.x)} ${r2(p.y)} `;last=seg.p;}
+    else if(seg.k==="C"){const c1=pt(seg.c1),c2=pt(seg.c2),p=pt(seg.p);d+=`C ${r2(c1.x)} ${r2(c1.y)} ${r2(c2.x)} ${r2(c2.y)} ${r2(p.x)} ${r2(p.y)} `;last=seg.p;}
+    else if(seg.k==="Z"){d+="Z ";last=sub;}
+  }
+  d=d.trim();if(!d)return null;
+  const doFill=paintMode.includes("fill"),doStroke=paintMode.includes("stroke");const sx=Math.hypot(st.ctm[0],st.ctm[1]),sy=Math.hypot(st.ctm[2],st.ctm[3]),lw=pdfPtToMm(st.lineWidth*((sx+sy)/2||1));
+  return{type:"path",name,fill:doFill?clonePaint(st.fill):"none",stroke:doStroke?clonePaint(st.stroke):"none",strokeWidth:doStroke?Math.max(.05,lw):0,fillOpacity:doFill?(st.fillAlpha??1):1,rotate:0,attrs:{d}};
+}
+async function importPdfVector(file,buf,isAi){
+  const lib=await ensurePdfJs();const loading=lib.getDocument({data:new Uint8Array(buf)});const pdf=await loading.promise;
+  let pageNo=1;if(pdf.numPages>1){const ans=prompt(`File có ${pdf.numPages} trang. Nhập số trang cần đưa vào Artboard:`,"1");if(ans===null)throw new Error("Đã hủy chọn trang.");pageNo=Math.max(1,Math.min(pdf.numPages,parseInt(ans,10)||1));}
+  showImportBusy(isAi?"Đang bung file AI thành vector…":"Đang bung PDF thành vector…",`Trang ${pageNo}/${pdf.numPages} · đang đọc path, màu và chữ.`);
+  const page=await pdf.getPage(pageNo),viewport=page.getViewport({scale:1}),pageW=pdfPtToMm(viewport.width),pageH=pdfPtToMm(viewport.height);
+  let scale=1,offX=0,offY=0;
+  if(!objects.length){DOC.w=r2(pageW);DOC.h=r2(pageH);DOC.die=null;DOC.bleed=0;syncDocInputs();}
+  else{const usePdf=confirm(`Khổ trang PDF/AI: ${pageW.toFixed(1)} × ${pageH.toFixed(1)} mm.\n\nOK: đổi Artboard theo trang file.\nCancel: chèn vừa trong Artboard hiện tại.`);
+    if(usePdf){DOC.w=r2(pageW);DOC.h=r2(pageH);DOC.die=null;syncDocInputs();}
+    else{scale=Math.min(DOC.w/pageW,DOC.h/pageH)*.94;offX=(DOC.w-pageW*scale)/2;offY=(DOC.h-pageH*scale)/2;}}
+  const opList=await page.getOperatorList(),OPS=lib.OPS;let st={ctm:[1,0,0,1,0,0],fill:rgbPaint01(0,0,0),stroke:rgbPaint01(0,0,0),lineWidth:1,fillAlpha:1,strokeAlpha:1};
+  const stack=[],added=[];let path=[],cur=null,sub=null,pathSeq=1;
+  function flush(mode){const o=importPdfPathObject(path,st,mode,viewport,`${isAi?"AI":"PDF"} vector ${pathSeq++}`);path=[];cur=sub=null;if(!o)return;
+    addObject(o);if(scale!==1||offX||offY){const b=bboxRaw(o);scaleObjTo(o,b,{x:offX+b.x*scale,y:offY+b.y*scale,w:b.w*scale,h:b.h*scale});o.strokeWidth*=scale;}added.push(o.id);}
+  for(let i=0;i<opList.fnArray.length;i++){const fn=opList.fnArray[i],a=opList.argsArray[i]||[];
+    if(fn===OPS.save){stack.push(clonePdfState(st));continue;}if(fn===OPS.restore){if(stack.length)st=stack.pop();continue;}
+    if(fn===OPS.transform){st.ctm=matrixMul(st.ctm,a);continue;}if(fn===OPS.setLineWidth){st.lineWidth=+a[0]||1;continue;}
+    if(fn===OPS.setFillRGBColor){st.fill=rgbPaint01(a[0],a[1],a[2]);continue;}if(fn===OPS.setStrokeRGBColor){st.stroke=rgbPaint01(a[0],a[1],a[2]);continue;}
+    if(fn===OPS.setFillCMYKColor){st.fill=cmykPaint01(a[0],a[1],a[2],a[3]);continue;}if(fn===OPS.setStrokeCMYKColor){st.stroke=cmykPaint01(a[0],a[1],a[2],a[3]);continue;}
+    if(fn===OPS.setFillGray){st.fill=grayPaint01(a[0]);continue;}if(fn===OPS.setStrokeGray){st.stroke=grayPaint01(a[0]);continue;}
+    if(fn===OPS.setGState&&Array.isArray(a[0])){for(const pair of a[0]){if(pair[0]==="ca")st.fillAlpha=+pair[1];else if(pair[0]==="CA")st.strokeAlpha=+pair[1];else if(pair[0]==="LW")st.lineWidth=+pair[1]||st.lineWidth;}continue;}
+    if(fn===OPS.constructPath){const ops=a[0]||[],co=a[1]||[];let k=0;
+      for(const op of ops){
+        if(op===OPS.moveTo){cur={x:+co[k++],y:+co[k++]};sub={...cur};path.push({k:"M",p:{...cur}});}
+        else if(op===OPS.lineTo){cur={x:+co[k++],y:+co[k++]};path.push({k:"L",p:{...cur}});}
+        else if(op===OPS.curveTo){const c1={x:+co[k++],y:+co[k++]},c2={x:+co[k++],y:+co[k++]},p={x:+co[k++],y:+co[k++]};path.push({k:"C",c1,c2,p});cur=p;}
+        else if(op===OPS.curveTo2){const c1=cur?{...cur}:{x:0,y:0},c2={x:+co[k++],y:+co[k++]},p={x:+co[k++],y:+co[k++]};path.push({k:"C",c1,c2,p});cur=p;}
+        else if(op===OPS.curveTo3){const c1={x:+co[k++],y:+co[k++]},p={x:+co[k++],y:+co[k++]},c2={...p};path.push({k:"C",c1,c2,p});cur=p;}
+        else if(op===OPS.closePath){path.push({k:"Z"});cur=sub?{...sub}:cur;}
+        else if(op===OPS.rectangle){const x=+co[k++],y=+co[k++],w=+co[k++],h=+co[k++];path.push({k:"M",p:{x,y}},{k:"L",p:{x:x+w,y}},{k:"L",p:{x:x+w,y:y+h}},{k:"L",p:{x,y:y+h}},{k:"Z"});cur={x,y};sub={x,y};}
+      }continue;}
+    if(fn===OPS.stroke){flush("stroke");continue;}if(fn===OPS.closeStroke){if(path.length)path.push({k:"Z"});flush("stroke");continue;}
+    if(fn===OPS.fill||fn===OPS.eoFill){flush("fill");continue;}if(fn===OPS.fillStroke||fn===OPS.eoFillStroke){flush("fillstroke");continue;}
+    if(fn===OPS.closeFillStroke||fn===OPS.closeEOFillStroke){if(path.length)path.push({k:"Z"});flush("fillstroke");continue;}
+    if(fn===OPS.endPath){path=[];cur=sub=null;continue;}
+  }
+  // Text is imported separately so it remains editable as text instead of being flattened.
+  try{const tc=await page.getTextContent();let tSeq=1;
+    for(const it of tc.items){if(!it.str||!it.str.trim())continue;const m=lib.Util.transform(viewport.transform,it.transform),x=pdfPtToMm(m[4]),y=pdfPtToMm(m[5]);
+      const fontPt=Math.max(2,Math.hypot(m[2],m[3])||Math.hypot(m[0],m[1])||10),size=pdfPtToMm(fontPt);const sty=tc.styles&&tc.styles[it.fontName];
+      const o={type:"text",name:`${isAi?"AI":"PDF"} text ${tSeq++}`,fill:rgbPaint01(0,0,0),stroke:"none",strokeWidth:0,fillOpacity:1,rotate:0,
+        attrs:{x:r2(x),y:r2(y),text:it.str,size:r2(size),font:(sty&&sty.fontFamily)||"Arial",weight:"normal"}};addObject(o);
+      if(scale!==1||offX||offY){const b=bboxRaw(o);scaleObjTo(o,b,{x:offX+b.x*scale,y:offY+b.y*scale,w:Math.max(.1,b.w*scale),h:Math.max(.1,b.h*scale)});}added.push(o.id);}
+  }catch(e){console.warn("Không tách được text PDF:",e);}
+  if(!added.length)throw new Error("Không tìm thấy path/text vector có thể chỉnh sửa. PDF có thể chỉ chứa ảnh scan hoặc dùng hiệu ứng PDF phức tạp.");
+  selection=added;snapshot();render();fitView();syncProps();setTool("select");return{count:added.length,pages:pdf.numPages,pageNo};
+}
+async function importDesignFile(file){
+  if(!file)return;const ext=(file.name.split(".").pop()||"").toLowerCase();showImportBusy("Đang đọc "+file.name,"Vui lòng giữ trang đang mở. File sẽ được chuyển thành đối tượng Artboard.");
+  try{
+    if(ext==="csv"||file.type==="text/csv"){const text=await file.text(),rows=parseCsvText(text);const r=importCsvRows(rows,file.name);setImportState(`✓ CSV: ${r.count} đối tượng${r.note}`,"ok");}
+    else if(ext==="pdf"||ext==="ai"||file.type==="application/pdf"){
+      const buf=await file.arrayBuffer(),meta=extractStudioMeta(buf);
+      if(meta){const r=importStudioMeta(meta,file.name);setImportState(`✓ ${ext.toUpperCase()}: khôi phục ${r.count} đối tượng gốc`,"ok");}
+      else{if(ext==="ai"&&!arrayBufferStartsWith(buf,"%PDF-"))throw new Error("File .ai này không có dữ liệu PDF-compatible. Trong Illustrator hãy Save As .AI và bật “Create PDF Compatible File”, rồi nhập lại.");
+        if(!arrayBufferStartsWith(buf,"%PDF-"))throw new Error("File không phải PDF hợp lệ.");const r=await importPdfVector(file,buf,ext==="ai");setImportState(`✓ ${ext.toUpperCase()}: ${r.count} đối tượng vector/text`,"ok");}}
+    else throw new Error("Chỉ hỗ trợ PDF, AI (PDF-compatible) và CSV.");
+  }catch(err){console.error(err);setImportState("✕ "+err.message,"err");alert("Không thể chèn file:\n"+err.message);}finally{hideImportBusy();$("#importFileInput").value="";}
+}
+$("#importFile").onclick=()=>$("#importFileInput").click();
+$("#importFileInput").onchange=e=>importDesignFile(e.target.files[0]);
+stage.addEventListener("dragover",e=>{const fs=[...e.dataTransfer.files];if(fs.some(f=>/\.(pdf|ai|csv)$/i.test(f.name))){e.preventDefault();stage.classList.add("import-hot");}});
+stage.addEventListener("dragleave",()=>stage.classList.remove("import-hot"));
+stage.addEventListener("drop",e=>{const f=[...e.dataTransfer.files].find(f=>/\.(pdf|ai|csv)$/i.test(f.name));if(f){e.preventDefault();stage.classList.remove("import-hot");importDesignFile(f);}});
+// Double-click imported/normal text to edit its content directly.
+svg.addEventListener("dblclick",e=>{const id=+(e.target.dataset.id||0);if(!id)return;const o=objects.find(x=>x.id===id);if(!o||o.type!=="text")return;
+  const v=prompt("Chỉnh nội dung chữ:",o.attrs.text||"");if(v===null)return;o.attrs.text=v;o.name=(o.name||"Chữ").replace(/\s*·.*/,"")+" · "+v.slice(0,24);snapshot();render();syncProps();});
+
 // =============== EXPORT ===============
 function buildPrintSVG(){const bx=DOC.bleed||0,W=DOC.w+bx*2,H=DOC.h+bx*2;
   const s=el("svg",{xmlns:SVGNS,width:W+"mm",height:H+"mm",viewBox:`0 0 ${W} ${H}`});
@@ -1207,16 +1397,20 @@ function exportPDF(asAi){
     }
     content+="Q\n";});
   // resources: shading dict
-  let shDict=shadings.map((s,i)=>`/${s.name} ${5+i} 0 R`).join(" ");
+  // Object 5 = font Helvetica; shading bắt đầu từ object 6.
+  let shDict=shadings.map((s,i)=>`/${s.name} ${6+i} 0 R`).join(" ");
   const objs=[];
   objs.push("<< /Type /Catalog /Pages 2 0 R >>");
   objs.push("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
-  objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wpt.toFixed(2)} ${hpt.toFixed(2)}] /TrimBox [${(bx*PT).toFixed(2)} ${(bx*PT).toFixed(2)} ${((bx+DOC.w)*PT).toFixed(2)} ${((bx+DOC.h)*PT).toFixed(2)}] /Contents 4 0 R /Resources << /Shading << ${shDict} >> >> >>`);
-  objs.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wpt.toFixed(2)} ${hpt.toFixed(2)}] /TrimBox [${(bx*PT).toFixed(2)} ${(bx*PT).toFixed(2)} ${((bx+DOC.w)*PT).toFixed(2)} ${((bx+DOC.h)*PT).toFixed(2)}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> /Shading << ${shDict} >> >> >>`);
+  const byteLen=t=>new TextEncoder().encode(t).length;
+  objs.push(`<< /Length ${byteLen(content)} >>\nstream\n${content}\nendstream`);
+  objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
   shadings.forEach(s=>objs.push(s.def));
-  let pdf="%PDF-1.5\n%\xff\xff\xff\xff\n";const offs=[];
-  objs.forEach((o,i)=>{offs.push(pdf.length);pdf+=`${i+1} 0 obj\n${o}\nendobj\n`;});
-  const xref=pdf.length;pdf+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`;
+  // Metadata design gốc cho phép PDF/AI do Vector Studio xuất được nhập lại đúng layer/path/text/gradient.
+  let pdf="%PDF-1.5\n%VectorStudioPro\n"+studioMetaComments();const offs=[];
+  objs.forEach((o,i)=>{offs.push(byteLen(pdf));pdf+=`${i+1} 0 obj\n${o}\nendobj\n`;});
+  const xref=byteLen(pdf);pdf+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`;
   offs.forEach(o=>pdf+=String(o).padStart(10,"0")+" 00000 n \n");
   pdf+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   const blob=new Blob([pdf],{type:"application/pdf"}),url=URL.createObjectURL(blob),a=document.createElement("a");
